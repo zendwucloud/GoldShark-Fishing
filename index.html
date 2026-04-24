@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>龍寶捕魚</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html, body {
+    width:100%; height:100%;
+    background:#000;
+    overflow:hidden;
+    touch-action:none;
+    user-select:none;
+  }
+
+  /* ── 墊底模糊背景（填滿整個螢幕，拉伸不保比例）── */
+  #bgBlur {
+    position:fixed; inset:0; z-index:0;
+    overflow:hidden;
+    background:#000;
+  }
+  /* 墊底模糊層內的 video（動態）或 img（靜態 fallback）*/
+  #bgBlur video, #bgBlur img {
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:fill;      /* 拉伸填滿，不保持比例 */
+    filter:blur(18px) brightness(0.4) saturate(1.3);
+    transform:scale(1.04);
+    pointer-events:none;
+  }
+
+  /* ── 全畫面縮放容器 ── */
+  #scaleWrapper {
+    position:absolute;
+    top:50%; left:50%;
+    transform-origin:center center;
+    z-index:1;
+    /* JS 會動態設定 transform */
+  }
+
+  /* ── 遊戲本體固定 1280×720 ── */
+  #gameWrapper {
+    position:relative;
+    width:1280px;
+    height:720px;
+    overflow:hidden;
+    border:3px solid #c8820a;
+    border-radius:10px;
+    box-shadow:0 0 60px rgba(220,140,0,0.6), 0 0 120px rgba(0,80,180,0.4);
+  }
+
+  #gameCanvas {
+    display:block;
+    cursor:none; /* 用自訂準心取代 */
+  }
+
+  /* ── 頂部 HUD ── */
+  #hud {
+    position:absolute; top:0; left:0; right:0; height:56px;
+    background:linear-gradient(180deg,rgba(0,8,30,0.92) 0%,transparent 100%);
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 24px;
+    pointer-events:none;
+  }
+  .hud-box {
+    background:rgba(0,0,0,0.55);
+    border:1px solid rgba(220,160,0,0.55);
+    border-radius:8px;
+    padding:5px 18px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .hud-label { color:#aac4e8; font-size:12px; letter-spacing:1px; font-family:'Arial',sans-serif; }
+  .hud-value { color:#ffd700; font-size:20px; font-weight:bold; font-family:'Arial',sans-serif; min-width:80px; text-align:right; }
+  #gameTitle {
+    color:#ffd700;
+    font-size:18px; font-weight:bold; letter-spacing:4px;
+    text-shadow:0 0 12px rgba(255,200,0,0.9);
+    font-family:'Arial',sans-serif;
+  }
+
+  /* ── 底部控制列 ── */
+  #bottomBar {
+    position:absolute; bottom:0; left:0; right:0; height:72px;
+    background:linear-gradient(0deg,rgba(0,8,30,0.96) 0%,transparent 100%);
+    display:flex; align-items:center; justify-content:center; gap:16px;
+    padding:0 24px;
+  }
+  .ctrl-btn {
+    background:linear-gradient(135deg,#1a3a6a,#0d2040);
+    border:1px solid #4a8acc;
+    color:#aaddff; border-radius:8px;
+    padding:0 20px; height:44px;
+    cursor:pointer; font-size:14px;
+    transition:background 0.15s, border-color 0.15s;
+    font-family:'Arial',sans-serif;
+    min-width:44px; /* 手機觸控最小44px */
+  }
+  .ctrl-btn:hover, .ctrl-btn:active { background:linear-gradient(135deg,#2a5a9a,#1a3060); border-color:#7ac; }
+  #betBox {
+    background:rgba(0,0,0,0.65);
+    border:1px solid rgba(220,160,0,0.85);
+    border-radius:8px; padding:0 20px; height:44px;
+    display:flex; align-items:center; gap:8px;
+  }
+  #betBox .hud-label { font-size:12px; }
+  #betBox .hud-value { font-size:18px; min-width:50px; }
+  #autoBtn {
+    background:linear-gradient(135deg,#1a5a2a,#0d3015);
+    border:1px solid #4acc6a;
+    color:#aaffcc; border-radius:8px;
+    padding:0 20px; height:44px;
+    cursor:pointer; font-size:14px;
+    transition:all 0.15s;
+    font-family:'Arial',sans-serif;
+  }
+  #autoBtn.active { background:linear-gradient(135deg,#3a8a4a,#1d5025); border-color:#8f8; color:#cfc; }
+
+  /* ── Boss 警告遮罩 ── */
+  #bossAlert {
+    display:none;
+    position:absolute; inset:0; z-index:10;
+    pointer-events:none;
+    border:4px solid transparent;
+    border-radius:8px;
+    animation: bossFlash 0.4s ease-in-out infinite alternate;
+  }
+  @keyframes bossFlash {
+    from { border-color: rgba(255,30,30,0); box-shadow: inset 0 0 0px rgba(255,30,30,0); }
+    to   { border-color: rgba(255,30,30,0.9); box-shadow: inset 0 0 60px rgba(255,30,30,0.25); }
+  }
+  #bossAlert.show { display:block; }
+
+  /* ── Boss HP 條 ── */
+  #bossHpBar {
+    display:none;
+    position:absolute; bottom:80px; left:50%; transform:translateX(-50%);
+    width:600px; z-index:10; pointer-events:none;
+    text-align:center;
+  }
+  #bossHpBar.show { display:block; }
+  #bossHpLabel {
+    color:#ff4444; font-size:14px; font-weight:bold; letter-spacing:2px;
+    font-family:'Arial',sans-serif; text-shadow:0 0 8px #f00;
+    margin-bottom:4px;
+  }
+  #bossHpTrack {
+    width:100%; height:18px; background:rgba(0,0,0,0.7);
+    border:1px solid #ff4444; border-radius:9px; overflow:hidden;
+    box-shadow: 0 0 12px rgba(255,0,0,0.5);
+  }
+  #bossHpFill {
+    height:100%; width:100%;
+    background: linear-gradient(90deg, #ff2200, #ff6600, #ffaa00);
+    border-radius:9px;
+    transition: width 0.1s;
+  }
+
+  /* ── Boss 入場文字 ── */
+  #bossTitle {
+    display:none;
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    z-index:15; pointer-events:none;
+    color:#ff3300; font-size:64px; font-weight:bold;
+    font-family:'Arial',sans-serif; letter-spacing:6px;
+    text-shadow: 0 0 30px #ff0000, 0 0 60px #ff4400;
+    animation: bossTitleAnim 0.15s ease-in-out infinite alternate;
+  }
+  @keyframes bossTitleAnim {
+    from { transform:translate(-50%,-50%) scale(1.0); }
+    to   { transform:translate(-50%,-50%) scale(1.05); }
+  }
+  #bossTitle.show { display:block; }
+
+  /* ── Boss 倒數計時器 ── */
+  #bossTimer {
+    display:none;
+    position:absolute; top:60px; left:50%; transform:translateX(-50%);
+    z-index:11; pointer-events:none;
+    text-align:center;
+  }
+  #bossTimer.show { display:block; }
+  #bossTimerNum {
+    color:#fff; font-size:36px; font-weight:bold;
+    font-family:'Arial',sans-serif;
+    text-shadow: 0 0 20px rgba(255,80,0,0.9), 0 0 40px rgba(255,80,0,0.5);
+    line-height:1;
+  }
+  #bossTimerNum.urgent { color:#ff3300; animation: urgentPulse 0.3s ease-in-out infinite alternate; }
+  @keyframes urgentPulse {
+    from { transform:scale(1.0); }
+    to   { transform:scale(1.15); }
+  }
+  #bossTimerLabel {
+    color:#ffaa44; font-size:11px; letter-spacing:2px;
+    font-family:'Arial',sans-serif;
+    margin-top:2px;
+  }
+
+  /* ── Boss 結算面板 ── */
+  #bossResult {
+    display:none;
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    z-index:20;
+    background:rgba(0,0,0,0.82);
+    border:2px solid #ffaa00;
+    border-radius:14px;
+    padding:28px 48px;
+    text-align:center;
+    min-width:340px;
+    box-shadow:0 0 40px rgba(255,160,0,0.5);
+  }
+  #bossResult.show { display:block; }
+  #bossResult h2 {
+    color:#ffd700; font-size:22px; letter-spacing:3px;
+    font-family:'Arial',sans-serif; margin-bottom:16px;
+  }
+  .result-row {
+    display:flex; justify-content:space-between; align-items:center;
+    color:#ccc; font-size:14px; font-family:'Arial',sans-serif;
+    padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.08);
+  }
+  .result-row span:last-child { color:#ffd700; font-weight:bold; font-size:16px; }
+  .result-total {
+    margin-top:12px; color:#fff; font-size:18px;
+    font-family:'Arial',sans-serif; font-weight:bold;
+  }
+  .result-total span { color:#ffd700; font-size:24px; }
+  #bossResultClose {
+    margin-top:18px;
+    background:linear-gradient(135deg,#cc8800,#ffcc00);
+    border:none; border-radius:8px;
+    padding:10px 36px; font-size:15px; font-weight:bold;
+    color:#000; cursor:pointer; letter-spacing:2px;
+    font-family:'Arial',sans-serif;
+  }
+  #bossResultClose:hover { background:linear-gradient(135deg,#ffcc00,#ffe066); }
+
+  /* ── 豎屏提示（手機專用）── */
+  #rotatePrompt {
+    display:none;
+    position:fixed; inset:0; z-index:999;
+    background:#000;
+    flex-direction:column;
+    align-items:center; justify-content:center; gap:20px;
+    color:#ffd700; font-family:'Arial',sans-serif; font-size:18px; text-align:center;
+  }
+  .rotate-icon { font-size:60px; animation:rotateAnim 1.5s ease-in-out infinite; }
+  @keyframes rotateAnim {
+    0%,100%{ transform:rotate(0deg); }
+    50%{ transform:rotate(90deg); }
+  }
+  @media (max-width:768px) and (orientation:portrait){
+    #rotatePrompt { display:flex; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 豎屏提示 -->
+<div id="rotatePrompt">
+  <div class="rotate-icon">📱</div>
+  <div>請旋轉手機為橫屏<br>以獲得最佳遊戲體驗</div>
+</div>
+
+<!-- 墊底模糊背景：webm 動畫版（fallback 到 jpg）-->
+<div id="bgBlur">
+  <video id="bgBlurVideo" autoplay muted loop playsinline></video>
+</div>
+
+<div id="scaleWrapper">
+  <div id="gameWrapper">
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
+
+    <!-- 頂部 HUD -->
+    <div id="hud">
+      <div class="hud-box">
+        <span class="hud-label">金　幣</span>
+        <span class="hud-value" id="coinsDisplay">5,000</span>
+      </div>
+      <div id="gameTitle">龍 寶 捕 魚</div>
+      <div class="hud-box">
+        <span class="hud-label">累積分數</span>
+        <span class="hud-value" id="scoreDisplay">0</span>
+        <span class="hud-label" style="font-size:10px;color:#888">/5000</span>
+      </div>
+    </div>
+
+    <!-- Boss 警告框 -->
+    <div id="bossAlert"></div>
+    <!-- Boss 倒數計時器 -->
+    <div id="bossTimer">
+      <div id="bossTimerNum">10</div>
+      <div id="bossTimerLabel">BOSS 剩餘時間</div>
+    </div>
+    <!-- Boss 結算面板 -->
+    <div id="bossResult">
+      <h2>⚔ BOSS 戰結算 ⚔</h2>
+      <div class="result-row"><span>造成傷害</span><span id="rDmgPct">-</span></div>
+      <div class="result-row"><span>基礎得分</span><span id="rBaseScore">-</span></div>
+      <div class="result-row" id="rBonusRow"><span>限時擊殺獎勵 ×1.5</span><span id="rBonus">-</span></div>
+      <div class="result-row"><span>得分換金幣（×0.1）</span><span id="rCoins">-</span></div>
+      <div class="result-total">獲得金幣：<span id="rTotal">-</span></div>
+      <button id="bossResultClose">繼續遊戲</button>
+    </div>
+    <!-- Boss HP 條 -->
+    <div id="bossHpBar">
+      <div id="bossHpLabel">⚠ BOSS 鯊魚王 ⚠</div>
+      <div id="bossHpTrack"><div id="bossHpFill"></div></div>
+    </div>
+    <!-- Boss 入場標題 -->
+    <div id="bossTitle">⚠ BOSS 出現 ⚠</div>
+
+    <!-- 底部控制 -->
+    <div id="bottomBar">
+      <button class="ctrl-btn" id="betDown">－</button>
+      <div id="betBox">
+        <span class="hud-label">砲彈倍率</span>
+        <span class="hud-value" id="betDisplay">10</span>
+      </div>
+      <button class="ctrl-btn" id="betUp">＋</button>
+      <button id="autoBtn" id="autoFireBtn">自動射擊</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════
+//  ★ 換圖區（美術交付後只改這裡）
+// ════════════════════════════════════════════
+const ASSETS = {
+  // 背景：靜態 jpg（fallback）+ 動態 webm
+  background:      'bg_ocean.jpg',     // fallback（webm 載入前顯示）
+  backgroundVideo: 'bg_ocean.webm',    // 動態背景
+
+  // ★ 爆炸特效 Sprite Sheet
+  // 黑底素材，自動用 screen 混合模式疊加（黑色變透明，火焰自然發光）
+  explosion: {
+    sheet:  'explosion_sprite.png',
+    frameW: 250,  // 每幀寬（3750 ÷ 15 = 250）
+    frameH: 250,  // 每幀高
+    frames: 15,   // 總幀數
+    fps:    24,   // 播放速度
+  },
+
+  // ★ Boss WebM（VP9 Alpha 透明通道）
+  boss: {
+    video: '大鯊魚.webm',
+    hp:    750,    // Boss 血量
+    mult:  500,    // 打死獎勵倍率
+    size:  200,    // 碰撞半徑（較大）
+  },
+
+  // 魚動畫設定
+  // sheet：WebP sprite sheet 路徑（靜態圖）
+  // video：WebM 路徑（動態影片，優先使用）
+  // bgMode：背景去背模式 'black'=純黑底用screen, 'alpha'=真透明, 'none'=直接畫
+  fishSprites: {
+    1: { video: 'fish_01.webm', bgMode: 'none',  displayW: 100, displayH: 56, sheet: null, frameW: 64,  frameH: 48,  frames: 8 },  // 小丑魚（直接畫，同大鯊魚）★
+    2: { sheet: null, frameW: 80,  frameH: 60,  frames: 8  },  // 小魚
+    3: { sheet: null, frameW: 96,  frameH: 72,  frames: 8  },  // 花魚
+    4: { sheet: null, frameW: 112, frameH: 84,  frames: 8  },  // 河豚
+    5: { sheet: null, frameW: 120, frameH: 90,  frames: 8  },  // 螃蟹
+    6: { sheet: null, frameW: 128, frameH: 96,  frames: 8  },  // 章魚
+    7: { sheet: 'Shark-King.webp', frameW: 384, frameH: 216, frames: 18, displayW: 200, displayH: 112 },  // 鯊魚 ★
+    9: { video: 'fish_07.webm', bgMode: 'alpha', displayW: 160, displayH: 109 },  // 海龜 ★
+    8: { sheet: null, frameW: 200, frameH: 150, frames: 10 },  // 龍王
+    // 換圖範例：
+    // 1: { sheet: 'fish_shrimp.png', frameW:128, frameH:96, frames:15 }
+  }
+};
+
+// ════════════════════════════════════════════
+//  Canvas & 尺寸
+// ════════════════════════════════════════════
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+const W = 1280, H = 720;
+
+// ── 全畫面等比縮放 ──
+function applyScale(){
+  const scaleX = window.innerWidth  / W;
+  const scaleY = window.innerHeight / H;
+  const scale  = Math.min(scaleX, scaleY);
+  const wrapper = document.getElementById('scaleWrapper');
+  wrapper.style.transform = `translate(-50%,-50%) scale(${scale})`;
+  // 回傳 scale 供座標換算
+  return scale;
+}
+let currentScale = applyScale();
+window.addEventListener('resize', ()=>{ currentScale = applyScale(); });
+
+// ── 邏輯座標換算（CSS 縮放後滑鼠/觸控座標要換算回 canvas 邏輯座標）──
+function toLogical(clientX, clientY){
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) / currentScale,
+    y: (clientY - rect.top)  / currentScale
+  };
+}
+
+// ════════════════════════════════════════════
+//  遊戲狀態
+// ════════════════════════════════════════════
+let coins          = 15000;
+let sessionScore   = 0;   // 一般遊戲累積分數
+let betAmount      = 10;
+let autoFire       = false;
+let autoFireTimer  = 0;
+let mouseDown      = false;  // 按住連發
+let mouseFireTimer = 0;      // 連發計時
+let mouseX = W/2, mouseY = H/2;
+let lastTime = 0;
+
+// ── Boss 戰結算系統 ──
+const SCORE_TO_COIN     = 0.1;   // 分數換金幣比例（10:1）
+const NORMAL_SCORE_CAP  = 5000;  // 累積多少分觸發 Boss
+const BOSS_MAX_SCORE    = 20000;  // Boss 戰滿分
+const BOSS_BONUS_MULT   = 1.5;   // 限時擊殺獎勵倍率
+const BOSS_TIME_LIMIT   = 10;    // Boss 停留秒數
+let bossTimeLeft        = BOSS_TIME_LIMIT;  // 倒數計時
+let bossTimerActive     = false;            // 計時是否進行中
+
+// ════════════════════════════════════════════
+//  魚種設定
+// ════════════════════════════════════════════
+const FISH_TYPES = [
+  { id:1, name:'小蝦', color:'#ff9977', glowColor:'#ff6644', size:22,  speed:2.2, hp:1,  mult:2,  freq:0.40 },
+  { id:2, name:'小魚', color:'#88ddff', glowColor:'#44aaff', size:28,  speed:1.8, hp:1,  mult:3,  freq:0.30 },
+  { id:3, name:'花魚', color:'#ffcc44', glowColor:'#ffaa00', size:34,  speed:1.5, hp:2,  mult:5,  freq:0.18 },
+  { id:4, name:'河豚', color:'#bb88ff', glowColor:'#8844ff', size:40,  speed:1.0, hp:3,  mult:8,  freq:0.12 },
+  { id:5, name:'螃蟹', color:'#ff5544', glowColor:'#cc2200', size:46,  speed:0.8, hp:4,  mult:12, freq:0.08 },
+  { id:6, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:52,  speed:0.7, hp:5,  mult:18, freq:0.05 },
+  { id:9, name:'海龜', color:'#44aa66', glowColor:'#228844', size:58,  speed:0.6, hp:6,  mult:22, freq:0.04 },  // ★ 新增
+  { id:7, name:'鯊魚', color:'#6699bb', glowColor:'#336699', size:68,  speed:1.3, hp:8,  mult:30, freq:0.03 },
+  { id:8, name:'龍王', color:'#ffaa00', glowColor:'#ff6600', size:88,  speed:0.6, hp:15, mult:80, freq:0.01 },
+];
+
+// ════════════════════════════════════════════
+//  物件池
+// ════════════════════════════════════════════
+let fishes       = [];
+let bullets      = [];
+let particles    = [];
+let floatingTexts= [];
+let explosions   = [];  // ★ 爆炸特效動畫
+
+// ── 背景元素（只初始化一次）──
+const bubbles = Array.from({length:55}, ()=>({
+  x: Math.random()*W, y: Math.random()*H,
+  r: Math.random()*5+1,
+  speed: Math.random()*0.5+0.1,
+  opacity: Math.random()*0.25+0.04,
+  wobble: Math.random()*Math.PI*2,
+  wobbleSpeed: Math.random()*0.018+0.004
+}));
+
+const bgGlows = Array.from({length:30}, ()=>({
+  x: Math.random()*W, y: Math.random()*H,
+  r: Math.random()*80+30,
+  opacity: Math.random()*0.07+0.02,
+  color: ['#0044aa','#003388','#002266','#003355','#004466'][Math.floor(Math.random()*5)]
+}));
+
+// ── 砲台（置中下方）──
+const cannon = { x: W/2, y: H-38, angle: -Math.PI/2 };
+
+// ════════════════════════════════════════════
+//  背景圖載入（靜態 jpg fallback）
+// ════════════════════════════════════════════
+let bgImage = null;
+if(ASSETS.background){
+  bgImage = new Image();
+  bgImage.src = ASSETS.background;
+  document.getElementById('bgBlur').style.backgroundImage = `url('${ASSETS.background}')`;
+} else {
+  document.getElementById('bgBlur').style.background =
+    'linear-gradient(135deg,#001428 0%,#002a5a 40%,#001428 70%,#000c18 100%)';
+}
+
+// ════════════════════════════════════════════
+//  背景 WebM 動畫
+// ════════════════════════════════════════════
+const bgVideo = document.createElement('video');
+bgVideo.muted       = true;
+bgVideo.loop        = true;
+bgVideo.playsInline = true;
+bgVideo.preload     = 'auto';
+
+if(ASSETS.backgroundVideo){
+  bgVideo.src = ASSETS.backgroundVideo;
+  bgVideo.play().catch(()=>{});
+
+  // 同步設定墊底模糊層的 video src
+  const bgBlurVideo = document.getElementById('bgBlurVideo');
+  if(bgBlurVideo){
+    bgBlurVideo.src = ASSETS.backgroundVideo;
+    bgBlurVideo.play().catch(()=>{});
+  }
+} else if(ASSETS.background){
+  // WebM 不存在時，墊底改回 jpg img
+  const bgBlurVideo = document.getElementById('bgBlurVideo');
+  if(bgBlurVideo){
+    bgBlurVideo.style.display = 'none';
+    const img = document.createElement('img');
+    img.src = ASSETS.background;
+    document.getElementById('bgBlur').appendChild(img);
+  }
+}
+
+// ════════════════════════════════════════════
+//  爆炸圖載入
+// ════════════════════════════════════════════
+let explosionImg = null;
+if(ASSETS.explosion && ASSETS.explosion.sheet){
+  explosionImg = new Image();
+  explosionImg.src = ASSETS.explosion.sheet;
+}
+
+// ── 魚 Sprite Sheet 預載 ──
+for(const [id, cfg] of Object.entries(ASSETS.fishSprites)){
+  if(cfg.sheet && typeof cfg.sheet === 'string'){
+    const img = new Image();
+    img.src = cfg.sheet;
+    cfg.sheet = img;
+  }
+}
+
+// ── 魚 WebM Video 預載 ──
+for(const [id, cfg] of Object.entries(ASSETS.fishSprites)){
+  if(cfg.video && typeof cfg.video === 'string'){
+    const vid = document.createElement('video');
+    vid.src         = cfg.video;
+    vid.loop        = true;
+    vid.muted       = true;
+    vid.playsInline = true;
+    vid.preload     = 'auto';
+    vid.play().catch(()=>{});
+    cfg.videoEl = vid;  // 存起來供繪製使用
+  }
+}
+
+// ════════════════════════════════════════════
+//  Boss Video 初始化
+// ════════════════════════════════════════════
+const bossVideo = document.createElement('video');
+bossVideo.src    = encodeURIComponent(ASSETS.boss.video).replace(/%2F/g,'/');
+bossVideo.loop   = true;
+bossVideo.muted  = true;
+bossVideo.preload = 'auto';
+bossVideo.playsInline = true;
+
+// ★ Boss 常數：必須在 boss 物件與所有 Boss 函數之前定義
+const BOSS_DW = Math.round(1280 * 0.75); // 960
+const BOSS_DH = Math.round(720  * 0.75); // 540
+const BOSS_ENTER_DURATION = 3.5;  // 入場秒數
+const BOSS_EXIT_DURATION  = 3.0;  // 離場秒數
+
+// Boss 狀態機
+const boss = {
+  state:       'idle',
+  hp:          ASSETS.boss.hp,
+  maxHp:       ASSETS.boss.hp,
+  x:           -BOSS_DW / 2,  // ★ 初始在左側畫面外
+  y:           H / 2,
+  hitFlash:    0,
+  enterTimer:  0,
+  triggerScore: 500,
+};
+
+function showBossHpBar(){
+  document.getElementById('bossHpBar').classList.add('show');
+  document.getElementById('bossAlert').classList.add('show');
+}
+function hideBossUI(){
+  document.getElementById('bossHpBar').classList.remove('show');
+  document.getElementById('bossAlert').classList.remove('show');
+  document.getElementById('bossTitle').classList.remove('show');
+  document.getElementById('bossTimer').classList.remove('show');
+}
+function updateBossHpBar(){
+  const pct = Math.max(0, boss.hp / boss.maxHp * 100);
+  document.getElementById('bossHpFill').style.width = pct + '%';
+}
+
+// ── 一般遊戲分數結算 → 換金幣 ──
+function settleNormalScore(){
+  if(sessionScore <= 0) return;
+  const earned = Math.floor(sessionScore * SCORE_TO_COIN);
+  coins += earned;
+  // 浮動文字提示
+  floatingTexts.push({
+    x: W/2, y: H/2 - 60,
+    text: `累積 ${sessionScore} 分 → +${earned} 金幣`,
+    life:120, maxLife:120, color:'#ffd700', size:22
+  });
+  sessionScore = 0;
+  updateHUD();
+}
+
+// ── Boss 戰結算 ──
+function settleBossResult(killedInTime){
+  const dmgPct   = 1 - (boss.hp / boss.maxHp);          // 造成傷害比例
+  const baseScore = Math.round(BOSS_MAX_SCORE * dmgPct); // 基礎得分
+  const bonus     = killedInTime ? Math.round(baseScore * 0.5) : 0;
+  const total     = baseScore + bonus;
+  const earnedCoins = Math.floor(total * SCORE_TO_COIN);
+
+  coins += earnedCoins;
+  updateHUD();
+
+  // 填入結算面板
+  document.getElementById('rDmgPct').textContent    = Math.round(dmgPct*100) + '%';
+  document.getElementById('rBaseScore').textContent = baseScore.toLocaleString();
+  document.getElementById('rBonusRow').style.display = killedInTime ? 'flex' : 'none';
+  document.getElementById('rBonus').textContent     = '+' + bonus.toLocaleString();
+  document.getElementById('rCoins').textContent     = total.toLocaleString() + ' 分';
+  document.getElementById('rTotal').textContent     = earnedCoins.toLocaleString();
+  document.getElementById('bossResult').classList.add('show');
+}
+
+function triggerBoss(){
+  if(boss.state !== 'idle') return;
+
+  // ★ 一般遊戲分數先結算換金幣
+  settleNormalScore();
+
+  boss.state    = 'entering';
+  boss.hp       = boss.maxHp;
+  boss.x        = -BOSS_DW / 2;
+  boss.y        = H / 2;
+  boss.enterTimer = BOSS_ENTER_DURATION;
+  bossTimeLeft  = BOSS_TIME_LIMIT;
+  bossTimerActive = false;
+
+  fishes = [];
+
+  document.getElementById('bossTitle').classList.add('show');
+  showBossHpBar();
+  updateBossHpBar();
+
+  bossVideo.currentTime = 0;
+  bossVideo.play().catch(()=>{});
+
+  setTimeout(()=>{
+    document.getElementById('bossTitle').classList.remove('show');
+    boss.state = 'active';
+    // ★ 到達中央才開始倒數
+    bossTimerActive = true;
+    document.getElementById('bossTimer').classList.add('show');
+  }, BOSS_ENTER_DURATION * 1000);
+}
+
+// (Boss 常數已在上方定義)
+
+function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+// ★ 修正1：用獨立的「目標座標」平滑插值，避免狀態切換時跳動
+// ★ 修正2：用 offscreen canvas 快取最後一幀，避免 loop 接縫閃爍
+
+// 離屏 canvas：從 video 抓幀
+const bossOffscreen = document.createElement('canvas');
+bossOffscreen.width  = BOSS_DW;
+bossOffscreen.height = BOSS_DH;
+const bossOffCtx = bossOffscreen.getContext('2d');
+
+let bossLastFrameValid = false;
+
+// (去背邏輯已整合到 drawBoss，用 screen 混合模式處理)
+
+function drawBoss(dt){
+  if(boss.state === 'idle' || boss.state === 'dead') return;
+
+  const now = Date.now();
+
+  // ── 計算目標座標 ──
+  let targetX, targetY;
+
+  if(boss.state === 'entering'){
+    boss.enterTimer -= dt;
+    const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_ENTER_DURATION));
+    targetX = -BOSS_DW/2 + (W/2 + BOSS_DW/2) * t;
+    targetY = H/2 + Math.sin(now * 0.0008) * 15;
+  } else if(boss.state === 'active'){
+    targetX = W/2 + Math.sin(now * 0.0004) * 60;
+    targetY = H/2 + Math.sin(now * 0.0007) * 25;
+  } else if(boss.state === 'dying'){
+    boss.enterTimer -= dt;
+    const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_EXIT_DURATION));
+    targetX = W/2 + (W/2 + BOSS_DW/2) * t;
+    targetY = H/2 + Math.sin(now * 0.0008) * 15;
+    if(boss.enterTimer <= 0){
+      boss.state = 'dead';
+      hideBossUI();
+      bossVideo.pause();
+      bossLastFrameValid = false;
+      setTimeout(()=>{
+        boss.state = 'idle';
+        boss.hp    = boss.maxHp;
+        // triggerScore 不再累加，固定 NORMAL_SCORE_CAP
+      }, 500);
+      return;
+    }
+  }
+
+  // ★ 修正1：平滑插值（lerp），不讓座標瞬間跳變
+  const lerpSpeed = 1 - Math.pow(0.01, dt);  // dt 自適應，約 8% per frame
+  boss.x += (targetX - boss.x) * lerpSpeed;
+  boss.y += (targetY - boss.y) * lerpSpeed;
+
+  // ── 更新快取幀（loop 接縫時用上一幀，避免閃爍）──
+  const isReady = bossVideo.readyState >= 2 && bossVideo.videoWidth > 0;
+  if(isReady){
+    bossOffCtx.clearRect(0, 0, BOSS_DW, BOSS_DH);
+    bossOffCtx.drawImage(bossVideo, 0, 0, BOSS_DW, BOSS_DH);
+    bossLastFrameValid = true;
+  }
+
+  if(!bossLastFrameValid) return;
+
+  // ── 繪製：直接畫（含深藍背景）──
+  // TODO: 換成帶 alpha 的 webm 後，效果會更乾淨
+  ctx.save();
+
+  if(boss.hitFlash > 0){
+    ctx.filter = 'brightness(2.5) saturate(0)';
+    boss.hitFlash--;
+  }
+
+  ctx.drawImage(bossOffscreen,
+    boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
+
+  ctx.filter = 'none';
+  ctx.restore();
+}
+
+function checkBossCollision(){
+  if(boss.state !== 'active') return;
+  for(let b of bullets){
+    if(b.life <= 0) continue;
+    const dx = b.x - boss.x;
+    const dy = b.y - boss.y;
+    const hitW = ASSETS.boss.size * 1.8;
+    const hitH = ASSETS.boss.size * 1.0;
+    if((dx*dx)/(hitW*hitW) + (dy*dy)/(hitH*hitH) < 1){
+      b.life = 0;
+      boss.hp = Math.max(0, boss.hp - betAmount);
+      boss.hitFlash = 4;
+      updateBossHpBar();
+
+      spawnParticles(b.x, b.y, '#ff4400', 10, 2, 7, 40);
+
+      // ★ 命中時即時顯示當前傷害分數
+      const curDmgPct = 1 - boss.hp / boss.maxHp;
+      const curScore  = Math.round(BOSS_MAX_SCORE * curDmgPct);
+      floatingTexts.push({
+        x: b.x, y: b.y - 20,
+        text: `-${betAmount}`,
+        life:35, maxLife:35, color:'#ff6622', size:14
+      });
+
+      if(boss.hp <= 0){
+        // ★ 時間內打完
+        boss.state = 'dying';
+        boss.enterTimer = 2.5;
+        bossTimerActive = false;
+        document.getElementById('bossTimer').classList.remove('show');
+
+        // 大爆炸特效
+        for(let i=0; i<5; i++){
+          setTimeout(()=>{
+            spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0));
+            spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true);
+          }, i*300);
+        }
+        floatingTexts.push({
+          x:boss.x, y:boss.y-100,
+          text:'BOSS 擊殺！限時獎勵 ×1.5',
+          life:120, maxLife:120, color:'#ffee00', size:30
+        });
+
+        // 結算（限時擊殺）
+        setTimeout(()=> settleBossResult(true), 800);
+      }
+      break;
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+//  工具
+// ════════════════════════════════════════════
+const rand = (a,b) => a + Math.random()*(b-a);
+const dist = (x1,y1,x2,y2) => Math.hypot(x2-x1, y2-y1);
+
+// ════════════════════════════════════════════
+//  Sprite Sheet 繪製輔助
+// ════════════════════════════════════════════
+function drawFishSprite(f, sprCfg){
+  const srcX = f.frame * sprCfg.frameW;
+  const srcY = 0;
+  const sw   = sprCfg.frameW;
+  const sh   = sprCfg.frameH;
+  // displayW/displayH：實際畫面顯示大小，未設定則用素材原尺寸
+  const dw   = sprCfg.displayW || sw;
+  const dh   = sprCfg.displayH || sh;
+
+  const facingLeft = Math.cos(f.angle) < 0;
+
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.rotate(facingLeft ? f.angle + Math.PI : f.angle);
+  if(facingLeft) ctx.scale(-1, 1);
+  if(f.hitFlash > 0){
+    ctx.globalAlpha = 0.55;
+    ctx.filter = 'brightness(3)';
+  }
+  ctx.drawImage(sprCfg.sheet, srcX, srcY, sw, sh, -dw/2, -dh/2, dw, dh);
+  ctx.filter = 'none';
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  產魚
+// ════════════════════════════════════════════
+let spawnTimer = 0;
+const SPAWN_INTERVAL = 75;
+
+function spawnFish(){
+  let totalW = FISH_TYPES.reduce((s,t)=>s+t.freq, 0);
+  let r = Math.random() * totalW;
+  let type;
+  for(let t of FISH_TYPES){ r -= t.freq; if(r<=0){ type=t; break; } }
+  if(!type) type = FISH_TYPES[0];
+
+  const side = Math.floor(Math.random()*4);
+  let x,y,vx,vy;
+  const spd = type.speed * rand(0.85,1.15);
+
+  if(side===0){ x=rand(50,W-50); y=-type.size-10; vx=rand(-0.4,0.4)*spd; vy=spd; }
+  else if(side===1){ x=W+type.size+10; y=rand(80,H-80); vx=-spd; vy=rand(-0.3,0.3)*spd; }
+  else if(side===2){ x=rand(50,W-50); y=H+type.size+10; vx=rand(-0.4,0.4)*spd; vy=-spd; }
+  else { x=-type.size-10; y=rand(80,H-80); vx=spd; vy=rand(-0.3,0.3)*spd; }
+
+  const sprCfg = ASSETS.fishSprites[type.id];
+  // ★ sprCfg 直接存起來，每幀動態判斷圖是否載入完成
+  // 不在 spawn 時一次性判斷（避免圖片還沒載入就被標記為 useSprite=false）
+
+  fishes.push({
+    ...type,
+    x, y, vx, vy,
+    hp:type.hp, maxHp:type.hp,
+    angle: Math.atan2(vy, vx),
+    pathType: Math.random()<0.55 ? 'sine' : 'straight',
+    sinePhase: Math.random()*Math.PI*2,
+    sineAmp:   rand(25,65),
+    sineFreq:  rand(0.012,0.038),
+    hitFlash:0, dead:false,
+    frame:0, frameTimer:0,
+    sprCfg: sprCfg || null,
+  });
+}
+
+// ════════════════════════════════════════════
+//  發射子彈
+// ════════════════════════════════════════════
+function fireBullet(tx, ty){
+  if(coins < betAmount) return;
+  coins -= betAmount;
+  updateHUD();
+  const angle = Math.atan2(ty - cannon.y, tx - cannon.x);
+  const spd   = 12;
+  bullets.push({
+    x: cannon.x, y: cannon.y,
+    vx: Math.cos(angle)*spd, vy: Math.sin(angle)*spd,
+    life:130, trail:[]
+  });
+}
+
+// ════════════════════════════════════════════
+//  碰撞
+// ════════════════════════════════════════════
+function checkCollisions(){
+  for(let b of bullets){
+    if(b.life<=0) continue;
+    for(let f of fishes){
+      if(f.dead) continue;
+      if(dist(b.x,b.y,f.x,f.y) < f.size * 0.8){
+        b.life = 0;
+        f.hitFlash = 10;
+        f.hp--;
+
+        // 命中粒子
+        spawnParticles(b.x, b.y, f.color, 8, 2, 6, 35);
+
+        if(f.hp <= 0){
+          f.dead = true;
+          const won = betAmount * f.mult;
+          // ★ 一般遊戲只累積分數，不直接給金幣（到 5000 分再換）
+          sessionScore += won;
+          updateHUD();
+          // ★ 真實爆炸特效（scale 依魚的大小調整）
+          const exScale = f.size / 120;
+          spawnExplosion(f.x, f.y, Math.max(0.6, Math.min(2.5, exScale * 2.5)));
+          // 金幣粒子（疊加在爆炸上）
+          spawnParticles(f.x, f.y, '#ffd700', 16, 2, 8, 50, true);
+          floatingTexts.push({
+            x:f.x, y:f.y-25,
+            text:`+${won}`,
+            life:90, maxLife:90,
+            color: f.mult>=30?'#ffee00': f.mult>=10?'#ff9900':'#ffffff',
+            size:  f.mult>=30?32: f.mult>=10?24:18
+          });
+        }
+        break;
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════
+//  爆炸動畫：產生 & 繪製
+// ════════════════════════════════════════════
+function spawnExplosion(x, y, scale=1.0){
+  if(!explosionImg || !explosionImg.complete) return;
+  const cfg = ASSETS.explosion;
+  explosions.push({
+    x, y, scale,
+    frame: 0,
+    frameTimer: 0,
+    frameDuration: 1 / cfg.fps,  // 每幀持續秒數
+    done: false
+  });
+}
+
+function updateDrawExplosions(dt){
+  if(!explosionImg || !explosionImg.complete) return;
+  const cfg = ASSETS.explosion;
+  const fw = cfg.frameW, fh = cfg.frameH;
+  const drawSize = fw; // 顯示尺寸 = 幀寬（可乘以 scale 放大縮小）
+
+  for(let i=explosions.length-1; i>=0; i--){
+    const e = explosions[i];
+    if(e.done){ explosions.splice(i,1); continue; }
+
+    // 更新幀
+    e.frameTimer += dt;
+    if(e.frameTimer >= e.frameDuration){
+      e.frameTimer -= e.frameDuration;
+      e.frame++;
+      if(e.frame >= cfg.frames){ e.done = true; continue; }
+    }
+
+    // 繪製：用 screen 混合模式，黑色背景自動變透明
+    const dw = drawSize * e.scale;
+    const dh = fh * e.scale;
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';  // ★ 黑底變透明，火焰自然發光
+    ctx.drawImage(
+      explosionImg,
+      e.frame * fw, 0, fw, fh,   // 來源：第 N 幀
+      e.x - dw/2, e.y - dh/2, dw, dh  // 目標：置中顯示
+    );
+    ctx.restore();
+  }
+}
+
+function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
+  for(let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2;
+    const s = rand(minSpd, maxSpd);
+    particles.push({
+      x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s - (isCoin?rand(0,4):0),
+      life, maxLife:life,
+      color, size:rand(isCoin?5:3, isCoin?11:8), isCoin
+    });
+  }
+}
+
+// ════════════════════════════════════════════
+//  繪製：背景
+//  優先順序：bgVideo（webm）→ bgImage（jpg）→ 程式漸層
+// ════════════════════════════════════════════
+function drawBackground(){
+  // ★ 優先：動態 WebM 背景
+  if(bgVideo && bgVideo.readyState >= 2){
+    ctx.drawImage(bgVideo, 0, 0, W, H);
+    return;
+  }
+  // Fallback：靜態 jpg
+  if(bgImage && bgImage.complete && bgImage.naturalWidth > 0){
+    ctx.drawImage(bgImage, 0, 0, W, H);
+    return;
+  }
+  // Fallback：程式生成深海漸層
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#001428');
+  g.addColorStop(0.45,'#001f3f');
+  g.addColorStop(1,'#000c18');
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+  for(const s of bgGlows){
+    const rg = ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r);
+    rg.addColorStop(0, hexToRgba(s.color, s.opacity));
+    rg.addColorStop(1, 'transparent');
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.save(); ctx.globalAlpha=0.035;
+  for(let i=0;i<6;i++){
+    const bx = W*0.08 + W*0.17*i;
+    const lg = ctx.createLinearGradient(bx,0,bx+50,H);
+    lg.addColorStop(0,'rgba(100,200,255,0.9)');
+    lg.addColorStop(1,'transparent');
+    ctx.fillStyle = lg;
+    ctx.beginPath();
+    ctx.moveTo(bx-15,0); ctx.lineTo(bx+70,0);
+    ctx.lineTo(bx+110,H); ctx.lineTo(bx-55,H);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function hexToRgba(hex, alpha){
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// ════════════════════════════════════════════
+//  繪製：泡泡
+// ════════════════════════════════════════════
+function updateDrawBubbles(dt){
+  ctx.save();
+  for(const b of bubbles){
+    b.y   -= b.speed * dt * 60;
+    b.wobble += b.wobbleSpeed * dt * 60;
+    b.x   += Math.sin(b.wobble) * 0.35;
+    if(b.y < -12){ b.y = H+12; b.x = Math.random()*W; }
+    ctx.globalAlpha = b.opacity;
+    ctx.strokeStyle = '#88ccff'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha = b.opacity*0.25;
+    ctx.fillStyle   = '#aaddff';
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  繪製：魚（幾何繪製 fallback）
+// ════════════════════════════════════════════
+function drawFishGeom(f){
+  ctx.save();
+  ctx.translate(f.x, f.y);
+
+  const facingLeft = Math.cos(f.angle) < 0;
+  ctx.rotate(f.angle + (facingLeft ? Math.PI : 0));
+  if(facingLeft) ctx.scale(-1, 1);
+
+  const s = f.size;
+  const flash = f.hitFlash > 0;
+
+  ctx.shadowColor = flash ? '#ffffff' : f.glowColor;
+  ctx.shadowBlur  = flash ? 25 : 8;
+  ctx.globalAlpha = flash ? 0.6 : 1;
+
+  // 魚身
+  ctx.fillStyle = f.color;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, s, s*0.52, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // 魚尾
+  ctx.beginPath();
+  ctx.moveTo(-s*0.72, 0);
+  ctx.lineTo(-s*1.25, -s*0.48);
+  ctx.lineTo(-s*1.25,  s*0.48);
+  ctx.closePath(); ctx.fill();
+
+  // 背鰭
+  ctx.beginPath();
+  ctx.moveTo(-s*0.1, -s*0.52);
+  ctx.quadraticCurveTo(s*0.2, -s*0.9, s*0.4, -s*0.52);
+  ctx.closePath();
+  ctx.globalAlpha = flash?0.4:0.7;
+  ctx.fill();
+
+  // 眼睛
+  ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(s*0.42, -s*0.1, s*0.13, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(s*0.44, -s*0.13, s*0.055, 0, Math.PI*2); ctx.fill();
+
+  // HP 條（受傷後才顯示）
+  if(f.hp < f.maxHp){
+    const bw = s*1.7, bh = 5, bx = -bw/2, by = -s-12;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = '#400'; ctx.fillRect(bx,by,bw,bh);
+    ctx.fillStyle = f.hp/f.maxHp > 0.5 ? '#0d0' : '#f80';
+    ctx.fillRect(bx, by, bw*(f.hp/f.maxHp), bh);
+    ctx.globalAlpha = 1;
+  }
+
+  // 龍王光環
+  if(f.mult >= 30){
+    ctx.globalAlpha = 0.18;
+    ctx.strokeStyle = '#ffaa00'; ctx.lineWidth = 3;
+    ctx.shadowColor = '#ffaa00'; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(0,0,s*1.45,0,Math.PI*2); ctx.stroke();
+  }
+
+  // 倍率標籤
+  ctx.globalAlpha  = 1; ctx.shadowBlur = 0;
+  ctx.fillStyle    = f.mult>=30?'#ffaa00': f.mult>=10?'#ff8844':'#88ffcc';
+  ctx.font         = `bold ${Math.max(11, s*0.36)}px Arial`;
+  ctx.textAlign    = 'center'; ctx.textBaseline = 'middle';
+  // 標籤在魚尾下方（避免被翻轉搞反）
+  ctx.save(); ctx.scale(facingLeft?-1:1,1);
+  ctx.fillText(`×${f.mult}`, 0, s*0.82);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+// ── 統一入口：video > sprite > 幾何 ──
+function drawFish(f){
+  const cfg = f.sprCfg;
+
+  // 1. WebM video 模式
+  if(cfg && cfg.videoEl && cfg.videoEl.readyState >= 2){
+    const vid = cfg.videoEl;
+    const dw  = cfg.displayW || vid.videoWidth  || 100;
+    const dh  = cfg.displayH || vid.videoHeight || 56;
+    const facingLeft = Math.cos(f.angle) < 0;
+
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.angle + (facingLeft ? Math.PI : 0));
+    if(facingLeft) ctx.scale(-1, 1);
+    if(f.hitFlash > 0){
+      ctx.filter = 'brightness(3)';
+      f.hitFlash--;
+    }
+    // bgMode 決定去背方式
+    if(cfg.bgMode === 'black'){
+      // 純黑底：用 screen 去背（黑色 screen = 透明）
+      ctx.globalCompositeOperation = 'screen';
+    }
+    ctx.drawImage(vid, -dw/2, -dh/2, dw, dh);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.filter = 'none';
+
+    // 倍率標籤
+    ctx.rotate(-(f.angle + (facingLeft ? Math.PI : 0)));
+    if(facingLeft) ctx.scale(-1, 1);
+    ctx.fillStyle = f.mult>=30?'#ffaa00':f.mult>=10?'#ff8844':'#88ffcc';
+    ctx.font = `bold ${Math.max(11, dh*0.3)}px Arial`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(`×${f.mult}`, 0, dh/2 + 12);
+
+    // HP 條
+    if(f.hp < f.maxHp){
+      const bw=dw*1.1, bh=4, bx=-bw/2, by=-dh/2-10;
+      ctx.globalAlpha=0.85;
+      ctx.fillStyle='#400'; ctx.fillRect(bx,by,bw,bh);
+      ctx.fillStyle=f.hp/f.maxHp>0.5?'#0d0':'#f80';
+      ctx.fillRect(bx,by,bw*(f.hp/f.maxHp),bh);
+      ctx.globalAlpha=1;
+    }
+    ctx.restore();
+    return;
+  }
+
+  // 2. Sprite Sheet 模式
+  const useSprite = cfg && cfg.sheet &&
+                    cfg.sheet.complete && cfg.sheet.naturalWidth > 0;
+  if(useSprite){
+    drawFishSprite(f, cfg);
+    ctx.save(); ctx.translate(f.x, f.y);
+    const dh = cfg.displayH || cfg.frameH;
+    const dw = cfg.displayW || cfg.frameW;
+    if(f.hp < f.maxHp){
+      const bw=dw*1.1,bh=5,bx=-bw/2,by=-dh/2-14;
+      ctx.globalAlpha=0.85;
+      ctx.fillStyle='#400'; ctx.fillRect(bx,by,bw,bh);
+      ctx.fillStyle=f.hp/f.maxHp>0.5?'#0d0':'#f80';
+      ctx.fillRect(bx,by,bw*(f.hp/f.maxHp),bh);
+    }
+    ctx.globalAlpha=1;
+    ctx.fillStyle=f.mult>=30?'#ffaa00':f.mult>=10?'#ff8844':'#88ffcc';
+    ctx.font=`bold ${Math.max(12,dh*0.22)}px Arial`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(`×${f.mult}`,0,dh/2+14);
+    ctx.restore();
+    return;
+  }
+
+  // 3. 幾何繪製（fallback）
+  drawFishGeom(f);
+}
+
+// ════════════════════════════════════════════
+//  繪製：子彈
+// ════════════════════════════════════════════
+function drawBullet(b){
+  ctx.save();
+  // 拖尾
+  if(b.trail.length>1){
+    ctx.strokeStyle='rgba(255,220,80,0.2)';
+    ctx.lineWidth=2; ctx.lineCap='round';
+    ctx.beginPath();
+    b.trail.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+    ctx.stroke();
+  }
+  // 光點
+  ctx.shadowColor='#ffee44'; ctx.shadowBlur=16;
+  ctx.fillStyle='#ffe866';
+  ctx.beginPath(); ctx.arc(b.x,b.y,5.5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.shadowBlur=0;
+  ctx.beginPath(); ctx.arc(b.x,b.y,2,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  繪製：砲台
+// ════════════════════════════════════════════
+function drawCannon(){
+  ctx.save();
+  ctx.translate(cannon.x, cannon.y);
+
+  // 底座
+  const bg = ctx.createRadialGradient(0,0,4,0,0,28);
+  bg.addColorStop(0,'#997700'); bg.addColorStop(1,'#3a2800');
+  ctx.fillStyle=bg; ctx.shadowColor='#ffaa00'; ctx.shadowBlur=22;
+  ctx.beginPath(); ctx.arc(0,0,24,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#ffcc44'; ctx.lineWidth=2; ctx.stroke();
+
+  // 外環裝飾
+  ctx.globalAlpha=0.4; ctx.strokeStyle='#ffee88'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(0,0,28,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha=1;
+
+  // 管身（跟著角度旋轉）
+  ctx.rotate(cannon.angle);
+  const mg = ctx.createLinearGradient(0,-8,0,8);
+  mg.addColorStop(0,'#ddbb00'); mg.addColorStop(0.5,'#886600'); mg.addColorStop(1,'#3a2800');
+  ctx.fillStyle=mg; ctx.shadowBlur=0;
+  ctx.beginPath(); ctx.roundRect(6,-7,34,14,4); ctx.fill();
+  ctx.strokeStyle='#ffcc44'; ctx.lineWidth=1; ctx.stroke();
+
+  // 管口光圈
+  ctx.shadowColor='#ffee00'; ctx.shadowBlur=18;
+  ctx.fillStyle='#ffe050';
+  ctx.beginPath(); ctx.arc(43,0,6,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  繪製：準心（自訂滑鼠游標）
+// ════════════════════════════════════════════
+function drawCrosshair(){
+  const x=mouseX, y=mouseY, r=10, gap=5, len=14;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,220,60,0.85)'; ctx.lineWidth=1.5;
+  ctx.shadowColor='rgba(255,200,0,0.5)'; ctx.shadowBlur=6;
+  // 十字
+  ctx.beginPath(); ctx.moveTo(x-(len+gap),y); ctx.lineTo(x-gap,y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x+(gap),y);     ctx.lineTo(x+(len+gap),y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x,y-(len+gap)); ctx.lineTo(x,y-gap); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x,y+gap);       ctx.lineTo(x,y+(len+gap)); ctx.stroke();
+  // 圓
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+
+  // 砲台到準心虛線
+  ctx.save();
+  ctx.strokeStyle='rgba(255,220,60,0.12)'; ctx.lineWidth=1; ctx.setLineDash([5,10]);
+  ctx.beginPath(); ctx.moveTo(cannon.x,cannon.y); ctx.lineTo(x,y); ctx.stroke();
+  ctx.setLineDash([]); ctx.restore();
+}
+
+// ════════════════════════════════════════════
+//  繪製：粒子 & 浮動文字
+// ════════════════════════════════════════════
+function updateDrawParticles(){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    const a=p.life/p.maxLife;
+    ctx.save(); ctx.globalAlpha=a;
+    if(p.isCoin){
+      ctx.shadowColor='#ffd700'; ctx.shadowBlur=8;
+      ctx.fillStyle='#ffd700';
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#ffe866'; ctx.lineWidth=1; ctx.stroke();
+    } else {
+      ctx.fillStyle=p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--;
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+
+function updateDrawFloatingTexts(){
+  for(let i=floatingTexts.length-1;i>=0;i--){
+    const t=floatingTexts[i];
+    const a=t.life/t.maxLife;
+    ctx.save();
+    ctx.globalAlpha=a;
+    ctx.fillStyle=t.color;
+    ctx.shadowColor=t.color; ctx.shadowBlur=12;
+    ctx.font=`bold ${t.size}px Arial`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(t.text,t.x,t.y);
+    ctx.restore();
+    t.y-=1.6; t.life--;
+    if(t.life<=0) floatingTexts.splice(i,1);
+  }
+}
+
+// ════════════════════════════════════════════
+//  HUD 更新
+// ════════════════════════════════════════════
+function updateHUD(){
+  document.getElementById('coinsDisplay').textContent = coins.toLocaleString();
+  document.getElementById('scoreDisplay').textContent = sessionScore.toLocaleString();
+  document.getElementById('betDisplay').textContent   = betAmount;
+}
+
+// ════════════════════════════════════════════
+//  主循環
+// ════════════════════════════════════════════
+function gameLoop(timestamp){
+  const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+  lastTime = timestamp;
+
+  // ── 背景 ──
+  drawBackground();
+  updateDrawBubbles(dt);
+  drawCrosshair();
+
+  // ── 產魚 ──
+  spawnTimer++;
+  if(spawnTimer >= SPAWN_INTERVAL){
+    spawnTimer = 0;
+    const n = Math.floor(rand(1,4));
+    for(let i=0;i<n;i++) spawnFish();
+  }
+
+  // ── 更新 & 繪製魚 ──
+  for(let i=fishes.length-1;i>=0;i--){
+    const f=fishes[i];
+    if(f.dead){ fishes.splice(i,1); continue; }
+
+    // 移動
+    if(f.pathType==='sine'){
+      f.sinePhase += f.sineFreq * dt * 60;
+      const mag = Math.hypot(f.vx, f.vy);
+      const nx = -f.vy/mag, ny = f.vx/mag; // 法向量
+      f.x += f.vx*dt*60 + nx*Math.sin(f.sinePhase)*f.sineAmp*dt*2;
+      f.y += f.vy*dt*60 + ny*Math.sin(f.sinePhase)*f.sineAmp*dt*2;
+    } else {
+      f.x += f.vx*dt*60;
+      f.y += f.vy*dt*60;
+    }
+    f.angle = Math.atan2(f.vy, f.vx);
+    if(f.hitFlash>0) f.hitFlash--;
+
+    // Sprite 幀更新
+    const _spr = f.sprCfg && f.sprCfg.sheet && f.sprCfg.sheet.complete && f.sprCfg.sheet.naturalWidth>0;
+    if(_spr){
+      f.frameTimer += dt;
+      if(f.frameTimer >= 0.1){ f.frameTimer=0; f.frame=(f.frame+1)%f.sprCfg.frames; }
+    }
+
+    // 出界移除
+    const m = f.size + 100;
+    if(f.x<-m||f.x>W+m||f.y<-m||f.y>H+m){ fishes.splice(i,1); continue; }
+
+    drawFish(f);
+  }
+
+  // ── 更新 & 繪製子彈 ──
+  for(let i=bullets.length-1;i>=0;i--){
+    const b=bullets[i];
+    b.trail.push({x:b.x,y:b.y});
+    if(b.trail.length>12) b.trail.shift();
+    b.x+=b.vx; b.y+=b.vy; b.life--;
+    if(b.life<=0||b.x<0||b.x>W||b.y<0||b.y>H){ bullets.splice(i,1); continue; }
+    drawBullet(b);
+  }
+
+  checkCollisions();
+  checkBossCollision();
+  updateDrawParticles();
+  updateDrawExplosions(dt);
+  updateDrawFloatingTexts();
+
+  // ── Boss 繪製 ──
+  drawBoss(dt);
+
+  // ── Boss 倒數計時 ──
+  if(bossTimerActive && boss.state === 'active'){
+    bossTimeLeft -= dt;
+    const timeDisp = Math.max(0, Math.ceil(bossTimeLeft));
+    const el = document.getElementById('bossTimerNum');
+    el.textContent = timeDisp;
+    el.className = timeDisp <= 3 ? 'urgent' : '';
+
+    if(bossTimeLeft <= 0){
+      // ★ 時間到 → 依造成傷害比例結算，無限時獎勵
+      bossTimerActive = false;
+      boss.state = 'dying';
+      boss.enterTimer = 2.5;
+      document.getElementById('bossTimer').classList.remove('show');
+      setTimeout(()=> settleBossResult(false), 500);
+    }
+  }
+
+  // ── 一般遊戲：累積到 NORMAL_SCORE_CAP 觸發 Boss ──
+  if(boss.state === 'idle' && sessionScore >= NORMAL_SCORE_CAP){
+    triggerBoss();
+  }
+  // Boss 戰中暫停產魚
+  if(boss.state === 'active' || boss.state === 'entering'){
+    spawnTimer = 0;
+  }
+
+  // ── 砲台 ──
+  cannon.angle = Math.atan2(mouseY-cannon.y, mouseX-cannon.x);
+  drawCannon();
+
+  // ── 按住滑鼠連發（朝準心方向）──
+  if(mouseDown){
+    mouseFireTimer++;
+    if(mouseFireTimer >= 8){  // 每 8 幀發一顆（約 7~8 發/秒）
+      mouseFireTimer = 0;
+      fireBullet(mouseX, mouseY);
+    }
+  } else {
+    mouseFireTimer = 0;
+  }
+
+  // ── 自動射擊（瞄準最近的魚）──
+  if(autoFire){
+    autoFireTimer++;
+    if(autoFireTimer >= 14){
+      autoFireTimer = 0;
+      let target=null, minD=Infinity;
+      for(const f of fishes){ const d=dist(cannon.x,cannon.y,f.x,f.y); if(d<minD){minD=d;target=f;} }
+      if(target) fireBullet(target.x, target.y);
+    }
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ════════════════════════════════════════════
+//  事件監聽
+// ════════════════════════════════════════════
+
+// ── 滑鼠 ──
+canvas.addEventListener('mousemove', e=>{
+  const p = toLogical(e.clientX, e.clientY);
+  mouseX=p.x; mouseY=p.y;
+});
+// 按下：開始連發
+canvas.addEventListener('mousedown', e=>{
+  if(e.button !== 0) return; // 只處理左鍵
+  const p = toLogical(e.clientX, e.clientY);
+  mouseX=p.x; mouseY=p.y;
+  mouseDown = true;
+  mouseFireTimer = 8; // 按下瞬間立即發一顆
+});
+// 放開：停止連發
+canvas.addEventListener('mouseup', e=>{
+  if(e.button !== 0) return;
+  mouseDown = false;
+});
+// 滑鼠離開畫布也停止
+canvas.addEventListener('mouseleave', ()=>{ mouseDown = false; });
+
+// ── 觸控（手機）──
+canvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const p = toLogical(t.clientX, t.clientY);
+  mouseX=p.x; mouseY=p.y;
+  mouseDown = true;
+  mouseFireTimer = 8; // 觸碰瞬間立即發一顆
+}, { passive:false });
+
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  const t = e.changedTouches[0];
+  const p = toLogical(t.clientX, t.clientY);
+  mouseX=p.x; mouseY=p.y;
+}, { passive:false });
+
+canvas.addEventListener('touchend', e=>{
+  e.preventDefault();
+  mouseDown = false;
+}, { passive:false });
+
+// ── Boss 結算面板關閉 ──
+document.getElementById('bossResultClose').addEventListener('click', ()=>{
+  document.getElementById('bossResult').classList.remove('show');
+  // 確保 boss 已回到 idle，否則等它完成
+  if(boss.state === 'dead'){
+    boss.state = 'idle';
+    boss.hp    = boss.maxHp;
+  }
+});
+
+// ── 按鈕 ──
+const BET_VALS = [1,5,10,20,50,100];
+document.getElementById('betDown').addEventListener('click',()=>{
+  const i=BET_VALS.indexOf(betAmount); if(i>0){ betAmount=BET_VALS[i-1]; updateHUD(); }
+});
+document.getElementById('betUp').addEventListener('click',()=>{
+  const i=BET_VALS.indexOf(betAmount); if(i<BET_VALS.length-1){ betAmount=BET_VALS[i+1]; updateHUD(); }
+});
+document.getElementById('autoBtn').addEventListener('click',()=>{
+  autoFire=!autoFire;
+  const btn=document.getElementById('autoBtn');
+  btn.classList.toggle('active',autoFire);
+  btn.textContent = autoFire ? '■ 停止自動' : '自動射擊';
+});
+
+// ════════════════════════════════════════════
+//  啟動
+// ════════════════════════════════════════════
+for(let i=0;i<10;i++) setTimeout(spawnFish, i*250);
+updateHUD();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
