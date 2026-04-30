@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>龍寶捕魚</title>
+<title>金鯊捕魚</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
@@ -285,7 +285,7 @@
         <span class="hud-label">金　幣</span>
         <span class="hud-value" id="coinsDisplay">5,000</span>
       </div>
-      <div id="gameTitle">龍 寶 捕 魚</div>
+      <div id="gameTitle">金 鯊 捕 魚</div>
       <div class="hud-box">
         <span class="hud-label">累積分數</span>
         <span class="hud-value" id="scoreDisplay">0</span>
@@ -355,15 +355,15 @@ const ASSETS = {
   },
 
   fishSprites: {
-    1: { sheet: '小魚.webp', frames: 168, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 85, hitH: 15, pathType: 'sine', sineAmp: 10, sineFreq: 0.01, formation: 'v_shape', formationCount: 3, spawnDir: 'horizontal', speed: 0.3 },  // 小魚
-    2: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 100, hitH: 70, pathType: 'sine', sineAmp: 25, formation: 'line', spawnDir: 'horizontal' },  // 飛魚
-    3: { sheet: '小丑魚.webp', frames: 145, cols: 5, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, spawnDir: 'horizontal', speed: 1.2 },  // 小丑魚
-    4: { sheet: null },  // 河豚（幾何繪製）
+    1: { sheet: '小魚A.webp', frames: 168, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 85, hitH: 15, pathType: 'straight', sineAmp: 10, sineFreq: 0.01, formation: 'single', formationCount: 3, spawnDir: 'all' },  // 小魚A
+    2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'straight', sineAmp: 25, formation: 'single', spawnDir: 'all' },  // 小魚B
+    3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line' },  // 飛魚
+    4: { sheet: '小丑魚.webp', frames: 145, cols: 5, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, spawnDir: 'all' },  // 小丑魚
     5: { sheet: null },  // 螃蟹（幾何繪製）
     6: { sheet: null },  // 章魚（幾何繪製）
-    7: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', size: 50, hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal', speed: 2 },  // 鯊魚
     8: { sheet: null },  // 龍王（幾何繪製）
-    9: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal', speed: 0.5 },  // 海龜
+    9: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
+    10: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
   }
 };
 
@@ -412,15 +412,15 @@ let bossTimeLeft        = BOSS_TIME_LIMIT;
 let bossTimerActive     = false;
 
 const FISH_TYPES = [
-  { id:1, name:'小蝦', color:'#ff9977', glowColor:'#ff6644', size:22, speed:2.2, hp:1,  mult:2,  freq:0.40 },
-  { id:2, name:'小魚', color:'#88ddff', glowColor:'#44aaff', size:28, speed:1.8, hp:1,  mult:3,  freq:0.30 },
-  { id:3, name:'花魚', color:'#ffcc44', glowColor:'#ffaa00', size:34, speed:1.5, hp:2,  mult:5,  freq:0.18 },
-  { id:4, name:'河豚', color:'#bb88ff', glowColor:'#8844ff', size:40, speed:1.0, hp:3,  mult:8,  freq:0.12 },
-  { id:5, name:'螃蟹', color:'#ff5544', glowColor:'#cc2200', size:46, speed:0.8, hp:4,  mult:12, freq:0.08 },
-  { id:6, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:52, speed:0.7, hp:5,  mult:18, freq:0.05 },
-  { id:9, name:'海龜', color:'#44aa66', glowColor:'#228844', size:58, speed:0.6, hp:6,  mult:22, freq:0.04 },
-  { id:7, name:'鯊魚', color:'#6699bb', glowColor:'#336699', size:68, speed:1.3, hp:8,  mult:30, freq:0.03 },
-  { id:8, name:'龍王', color:'#ffaa00', glowColor:'#ff6600', size:88, speed:0.6, hp:15, mult:80, freq:0.01 },
+  { id:1, name:'小魚A', color:'#ff9977', glowColor:'#ff6644', size:30, speed:0.2, hp:1, mult:2, freq:10 },
+  { id:2, name:'小魚B', color:'#88ddff', glowColor:'#44aaff', size:30, speed:0.5, hp:1, mult:3, freq:10 },
+  { id:3, name:'飛魚', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:0.8, hp:1, mult:6, freq:9 },
+  { id:4, name:'小丑魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:1.2, hp:1, mult:8, freq:8 },
+  { id:5, name:'螃蟹', color:'#ff5544', glowColor:'#cc2200', size:30, speed:1.5, hp:1, mult:10, freq:7 },
+  { id:6, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:30, speed:1.5, hp:1, mult:15, freq:6 },
+  { id:8, name:'龍王', color:'#44aa66', glowColor:'#228844', size:30, speed:1.5, hp:1, mult:20, freq:5 },
+  { id:9, name:'海龜', color:'#ff9977', glowColor:'#ff6644', size:30, speed:0.5, hp:1, mult:30, freq:4 },
+  { id:10, name:'鯊魚', color:'#88ddff', glowColor:'#44aaff', size:50, speed:3, hp:1, mult:35, freq:3 },
 ];
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [];
@@ -654,57 +654,59 @@ function drawFishSprite(f, sprCfg) {
   const dw = sprCfg.displayW || sprCfg.frameW;
   const dh = sprCfg.displayH || sprCfg.frameH;
   
+  // 是否需要垂直翻轉 (避免往左游時倒栽蔥)
+  const isFacingLeft = Math.abs(f.angle) > Math.PI / 2;
+
+  // ── 1. 正常繪製階段 ──
   ctx.save(); 
   ctx.translate(f.x, f.y); 
-
-  // 1. 旋轉：讓魚頭朝向移動方向
   ctx.rotate(f.angle);
-  
-  // 2. 翻轉：如果往左游，垂直翻轉保持背部朝上，防止倒栽蔥
-  const isFacingLeft = Math.abs(f.angle) > Math.PI / 2;
-  if (isFacingLeft) {
-    ctx.scale(1, -1);
-  }
-
+  if (isFacingLeft) ctx.scale(1, -1);
   if (sprCfg.bgMode === 'black') ctx.globalCompositeOperation = 'screen';
-
-  // ★ 影子分身術距離：因為座標系已經跟著魚轉了，所以永遠固定畫在 -3000
-  const shadowDist = 3000;
 
   if (sprCfg.frames_cache) {
     const fc = sprCfg.frames_cache[f.frame] || sprCfg.frames_cache[0];
-    // 正常繪製
     ctx.drawImage(fc, -dw / 2, -dh / 2, dw, dh);
-    
-    // 受擊紅光
-    if (f.hitFlash > 0) {
-      ctx.save();
-      ctx.globalAlpha = 0.6; 
-      ctx.shadowColor = 'red'; ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = shadowDist; ctx.shadowOffsetY = 0;
-      ctx.drawImage(fc, -dw / 2 - shadowDist, -dh / 2, dw, dh);
-      ctx.restore();
-    }
   } else {
     const c = sprCfg.cols || 1;
     const srcX = (f.frame % c) * sprCfg.frameW;
     const srcY = Math.floor(f.frame / c) * sprCfg.frameH;
-    
-    // 正常繪製
     ctx.drawImage(sprCfg.img, srcX, srcY, sprCfg.frameW, sprCfg.frameH, -dw / 2, -dh / 2, dw, dh);
+  }
+  ctx.restore();
+
+  // ── 2. 受擊紅光遮罩階段 ──
+  if (f.hitFlash > 0) {
+    const shadowDist = 3000;
+    ctx.save();
     
-    // 受擊紅光
-    if (f.hitFlash > 0) {
-      ctx.save();
-      ctx.globalAlpha = 0.6;
-      ctx.shadowColor = 'red'; ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = shadowDist; ctx.shadowOffsetY = 0;
-      ctx.drawImage(sprCfg.img, srcX, srcY, sprCfg.frameW, sprCfg.frameH, -dw / 2 - shadowDist, -dh / 2, dw, dh);
-      ctx.restore();
+    // ★ 終極解法：先在「未旋轉的絕對物理座標」往左退後 3000
+    ctx.translate(f.x - shadowDist, f.y);
+    
+    // 然後才做跟實體一模一樣的旋轉與翻轉
+    ctx.rotate(f.angle);
+    if (isFacingLeft) ctx.scale(1, -1);
+
+    // 設定絕對的紅色陰影，強迫它在實體螢幕上往右補償 3000
+    ctx.globalAlpha = 0.6; 
+    ctx.shadowColor = 'red'; 
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = shadowDist; 
+    ctx.shadowOffsetY = 0;
+
+    // 像平常一樣畫圖 (不加偏移，因為已經在 translate 時退後了)
+    if (sprCfg.frames_cache) {
+      const fc = sprCfg.frames_cache[f.frame] || sprCfg.frames_cache[0];
+      ctx.drawImage(fc, -dw / 2, -dh / 2, dw, dh);
+    } else {
+      const c = sprCfg.cols || 1;
+      const srcX = (f.frame % c) * sprCfg.frameW;
+      const srcY = Math.floor(f.frame / c) * sprCfg.frameH;
+      ctx.drawImage(sprCfg.img, srcX, srcY, sprCfg.frameW, sprCfg.frameH, -dw / 2, -dh / 2, dw, dh);
     }
+    ctx.restore();
   }
 
-  ctx.restore();
   return true;
 }
 
@@ -1059,20 +1061,18 @@ function gameLoop(timestamp){
   spawnTimer++;
   if(spawnTimer >= 75){ spawnTimer = 0; const n = Math.floor(rand(1,4)); for(let i=0;i<n;i++) spawnFish(); }
 
-  // ★ 核心優化：渲染層級排序 (ID 越大畫在越上面)
-  fishes.sort((a, b) => (a.id || 0) - (b.id || 0));
-
+// ── 1. 邏輯更新階段：移動、動畫、死亡與邊界判定 ──
   for(let i=fishes.length-1; i>=0; i--){
-    const f=fishes[i]; if(f.dead){ fishes.splice(i,1); continue; }
+    const f=fishes[i]; 
+    if(f.dead){ fishes.splice(i,1); continue; }
     
-    // 1. 計算位移與角度
+    // 計算位移與角度
     if(f.pathType==='sine'){
       f.sinePhase += f.sineFreq * dt * 60; 
       const mag = Math.hypot(f.vx, f.vy); 
       const nx = -f.vy/mag, ny = f.vx/mag;
       f.x += f.vx*dt*60 + nx*Math.sin(f.sinePhase)*f.sineAmp*dt*2; 
       f.y += f.vy*dt*60 + ny*Math.sin(f.sinePhase)*f.sineAmp*dt*2;
-      // ★ 視覺優化：讓波浪游動的魚，頭部也跟著微幅擺動
       f.angle = Math.atan2(f.vy, f.vx) + Math.cos(f.sinePhase) * 0.15;
     } else { 
       f.x += f.vx*dt*60; 
@@ -1082,20 +1082,26 @@ function gameLoop(timestamp){
     
     if(f.hitFlash>0) f.hitFlash--;
     
-    // 2. 播放 Sprite 動畫幀
+    // 播放 Sprite 動畫幀
     if(f.sprCfg && (f.sprCfg.img || f.sprCfg.frames_cache)){
       f.frameTimer += dt; const _fd = 1/30; 
       while(f.frameTimer >= _fd){ f.frameTimer -= _fd; f.frame=(f.frame+1)%f.sprCfg.frames; }
     }
     
-    // 3. ★ 核心修正：加大邊界判定範圍至 600，避免後排小弟一出生就被系統誤殺！
+    // 加大邊界判定範圍至 600
     const m = 600; 
     if(f.x < -m || f.x > W + m || f.y < -m || f.y > H + m){ 
       fishes.splice(i,1); 
-      continue; 
     }
-    
-    drawFish(f);
+  }
+
+  // ── 2. 渲染階段：排序並畫出所有存活的魚 ──
+  // ★ 將陣列從小到大排序 (ID 1 排前面, ID 9 排後面)
+  fishes.sort((a, b) => (a.id || 0) - (b.id || 0));
+  
+  // ★ 用正向迴圈畫，確保 ID 越大的越晚畫 (蓋在最上面)
+  for(let i=0; i<fishes.length; i++){
+    drawFish(fishes[i]);
   }
 
   for(let i=bullets.length-1;i>=0;i--){
