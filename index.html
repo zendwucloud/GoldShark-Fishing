@@ -66,6 +66,42 @@
       inset 0 0 60px rgba(0, 15, 40, 0.7);  /* 往內吃掉銳利邊緣的深海暗角 */
   }
 
+  /* ── 🎬 電影感漸層遮罩 (三邊：左、右、下) ── */
+  .edge-mask {
+    position: absolute;
+    z-index: 2;         /* 放在 Canvas 之上，低於 UI */
+    pointer-events: none; /* 確保不擋住滑鼠點擊 */
+  }
+
+  /* 底部遮罩 (維持原本的，可以稍微加深點，高度 140px) */
+  .bottom-mask {
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 140px; 
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 100%);
+  }
+
+  /* 左側遮罩 (寬度 100px) */
+  .left-mask {
+    top: 0;
+    left: 0;
+    width: 100px;
+    height: 100%;
+    /* 從左邊深黑色到右邊透明 */
+    background: linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%);
+  }
+
+  /* 右側遮罩 (寬度 100px) */
+  .right-mask {
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100%;
+    /* 從右邊深黑色到左邊透明 */
+    background: linear-gradient(to left, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%);
+  }
+
   #gameCanvas {
     display:block;
     cursor:none; /* 用自訂準心取代 */
@@ -94,16 +130,33 @@
     transform-origin: left center; 
   }
 
-  /* 配合 gui.png 的透明加減號點擊區 */
-  #betDown { left: 475px; bottom: 18px; width: 60px; height: 60px; }
-  #betUp { left: 745px; bottom: 18px; width: 60px; height: 60px; }
+  /* ── 🟢 獨立的實體加減按鈕 ── */
+  .bet-btn {
+    position: absolute;
+    width: 110px;   /* ★ 變大：從 55px 放大到 76px，手感更好 */
+    height: 85px;  /* ★ 變大 */
+    cursor: pointer;
+    z-index: 2;    /* ★ 降級：把層級降到 2，乖乖躲在砲管(z-index:3)底下 */
+    transition: transform 0.05s ease-out, filter 0.05s ease-out;
+    -webkit-user-drag: none;
+  }
+
+  /* ✨ 按下時的特效：稍微縮小 + 變暗 */
+  .bet-btn:active {
+    transform: scale(0.92);
+    filter: brightness(0.75) contrast(1.1);
+  }
+
+  /* ★ 重新對齊：因為按鈕變大了，所以座標要稍微往「左下」微調來置中 */
+  #betDown { left: 422px; bottom: 0px; } 
+  #betUp { left: 745px; bottom: 0px; }
 
   /* 砲台與砲座 */
   /* 將整個大砲群組設為 z-index: 3 */
   #cannonContainer { position: absolute; left: 640px; bottom: 18px; width: 0; height: 0; z-index: 3; pointer-events: none; }
   
   /* 砲座在群組內墊底 (z-index: 1) */
-  #cannonBase { position: absolute; left: -97px; bottom: -35px; width: 200px; z-index: 1; }
+  #cannonBase { position: absolute; left: -101px; bottom: -35px; width: 200px; z-index: 1; }
   
   /* 砲管壓在砲座上面 (z-index: 2) */
   #cannonBarrel { 
@@ -254,6 +307,66 @@
   }
   #bossResultClose:hover { background:linear-gradient(135deg,#ffcc00,#ffe066); }
 
+  /* ── ⏳ Loading 蓋板樣式 ── */
+  #loadingScreen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: url('Loading.jpg') center/cover no-repeat #001f3f;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    padding-bottom: 8%; 
+    transition: opacity 0.5s ease-out; 
+  }
+
+  /* 👇 ★ 補上這段：強迫內容容器撐開到 100% 寬度 👇 */
+  .loading-content {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── ⏳ 修正：橫向螢幕專屬的超寬讀條 ── */
+  #loadingProgress { 
+    width: 65%;           /* 現在這個 65% 終於能對齊整個螢幕了！ */
+    max-width: 900px;     
+    text-align: center; 
+    margin-bottom: 10px;  
+  }
+  #loadingText { 
+    color: #fff; font-size: 26px; font-weight: bold; margin-bottom: 16px; 
+    text-shadow: 0 2px 5px #000, 0 0 15px #00bbff; letter-spacing: 3px; 
+    font-family: 'Arial', sans-serif;
+  }
+  #loadingBarBg { 
+    width: 100%; 
+    height: 32px;         /* ★ 稍微加粗，增加份量感 */
+    background: rgba(0, 0, 0, 0.75); 
+    border: 3px solid #00bbff; /* ★ 外框加粗 */
+    border-radius: 16px; 
+    overflow: hidden; 
+    box-shadow: 0 0 25px rgba(0, 187, 255, 0.6); 
+  }
+  #loadingBarFill { 
+    width: 0%; height: 100%; 
+    background: linear-gradient(90deg, #0088ff, #00ffcc); 
+    border-radius: 10px; transition: width 0.1s ease-out; 
+    box-shadow: 0 0 20px #00ffcc; 
+  }
+  
+  /* ✨ 會呼吸發光的開始按鈕 */
+  #startBtn {
+    display: none; padding: 15px 70px; font-size: 32px; font-weight: bold; color: #fff;
+    background: linear-gradient(180deg, #ffcc00, #ff6600);
+    border: 3px solid #ffe866; border-radius: 50px; cursor: pointer;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6), 0 0 30px rgba(255, 150, 0, 0.8);
+    animation: pulseStart 1s infinite alternate; /* 呼吸燈特效 */
+    text-shadow: 0 2px 4px #882200;
+    font-family: 'Arial', sans-serif;
+  }
+  @keyframes pulseStart {
+    from { transform: scale(1); filter: brightness(1); }
+    to { transform: scale(1.05); filter: brightness(1.2); }
+  }
+
   /* ── 豎屏提示（手機專用）── */
   #rotatePrompt {
     display:none;
@@ -281,6 +394,18 @@
   <div>請旋轉手機為橫屏<br>以獲得最佳遊戲體驗</div>
 </div>
 
+<div id="loadingScreen">
+  <div class="loading-content">
+    <div id="loadingProgress">
+      <div id="loadingText">載入中... 0%</div>
+      <div id="loadingBarBg">
+        <div id="loadingBarFill"></div>
+      </div>
+    </div>
+    <button id="startBtn" style="display: none;">進入漁場</button>
+  </div>
+</div>
+
 <!-- 墊底模糊背景：webm 動畫版（fallback 到 jpg）-->
 <div id="bgBlur">
   <video id="bgBlurVideo" autoplay muted loop playsinline></video>
@@ -289,6 +414,9 @@
 <div id="scaleWrapper">
   <div id="gameWrapper">
     <canvas id="gameCanvas" width="1280" height="720"></canvas>
+    <div class="edge-mask left-mask"></div>
+    <div class="edge-mask right-mask"></div>
+    <div class="edge-mask bottom-mask"></div>
 
     <!-- ★ 必須留著的 Boss 介面 (被誤刪的器官) -->
     <!-- Boss 警告框 -->
@@ -329,7 +457,7 @@
       </div>
 
       <!-- 中左：減號點擊區 -->
-      <div id="betDown" class="hitbox"></div>
+      <img src="-.png" id="betDown" class="bet-btn" alt="減少">
 
       <!-- 中間：倍數底框 (置於砲座底下) -->
       <img src="倍數.png" id="betBg">
@@ -346,7 +474,7 @@
       </div>
 
       <!-- 中右：加號點擊區 -->
-      <div id="betUp" class="hitbox"></div>
+      <img src="+.png" id="betUp" class="bet-btn" alt="增加">
 
       <!-- 右側 1：自動射擊 -->
       <div id="autoBtn" class="hitbox">
@@ -390,11 +518,11 @@ const ASSETS = {
   fishSprites: {
     1: { sheet: '小魚A.webp', frames: 168, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 85, hitH: 15, pathType: 'straight', sineAmp: 10, sineFreq: 0.01, formation: 'single', formationCount: 3, spawnDir: 'all' },  // 小魚A
     2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'straight', sineAmp: 25, formation: 'single', spawnDir: 'all' },  // 小魚B
-    3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line' },  // 飛魚
+    3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line', formationCount: 3 },  // 飛魚
     4: { sheet: '小丑魚.webp', frames: 145, cols: 5, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
-    5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 河豚
+    5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', spawnDir: 'horizontal' },  // 河豚
     6: { sheet: '章魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
-    8: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 50, hitH: 35, spawnDir: 'horizontal' },  // 燈籠魚
+    8: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', hitW: 200, hitH: 150, spawnDir: 'horizontal' },  // 燈籠魚
     9: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
     10: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
     11: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, spawnDir: 'horizontal' },  // 錘頭鯊
@@ -492,16 +620,16 @@ const FISH_TYPES = [
   { id:2, name:'小魚B', color:'#88ddff', glowColor:'#44aaff', size:30, speed:0.5, hp:1, mult:3, freq:300 },
   { id:3, name:'飛魚', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:0.8, hp:1, mult:6, freq:100 },
   { id:4, name:'小丑魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:1.2, hp:1, mult:8, freq:80 },
-  { id:5, name:'河豚', color:'#ff5544', glowColor:'#cc2200', size:30, speed:1.2, hp:1, mult:10, freq:30 },
+  { id:5, name:'河豚', color:'#ff5544', glowColor:'#cc2200', size:65, speed:1.2, hp:1, mult:10, freq:30 },
   { id:6, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:100, speed:1.5, hp:1, mult:12, freq:30 },
-  { id:8, name:'燈籠魚', color:'#44aa66', glowColor:'#228844', size:25, speed:2, hp:1, mult:12, freq:25 },
+  { id:8, name:'燈籠魚', color:'#44aa66', glowColor:'#228844', size:110, speed:2, hp:1, mult:12, freq:25 },
   { id:9, name:'海龜', color:'#ff9977', glowColor:'#ff6644', size:30, speed:1, hp:1, mult:15, freq:25 },
   { id:10, name:'鯊魚', color:'#88ddff', glowColor:'#44aaff', size:50, speed:3, hp:1, mult:20, freq:20 },
   { id:11, name:'錘頭鯊', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:3.2, hp:1, mult:20, freq:20 },
   { id:12, name:'魟魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:2.5, hp:1, mult:25, freq:15 },
 ];
 
-let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [];
+let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [];
 // ★ 物件回收池
 let bulletPool = [], particlePool = [];
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
@@ -1004,14 +1132,25 @@ function checkCollisions(){
 
       if(isHit){
         b.life = 0; 
+        
+        // ★ 改為：根據子彈等級噴發大量科幻發光粒子
+        let pColor = '#44eeff'; // 一階：青藍色
+        let pCount = 15;
+        let pSpd = 6;
+        if(b.type === 2) { pColor = '#00e5ff'; pCount = 25; pSpd = 8; }
+        if(b.type === 3) { pColor = '#bb88ff'; pCount = 45; pSpd = 14; } // 三階：巨大電漿紫爆破
+        
+        // 1. 產生外圈科幻爆破粒子 (顏色跟隨子彈)
+        spawnParticles(b.x, b.y, pColor, pCount, 2, pSpd, 35);
+        // 2. 產生內圈高亮核心 (模擬爆破瞬間的閃光)
+        spawnParticles(b.x, b.y, '#ffffff', Math.floor(pCount/2), 1, pSpd*0.5, 20);
+
         if (b.type === 3) {
           // ★ 第三階：觸發範圍 180px 的電漿大爆炸！
           plasmaExplosions.push({x: b.x, y: b.y, life: 30, maxLife: 30});
           for (let f2 of fishes) {
             if (f2.dead) continue;
-            if (dist(b.x, b.y, f2.x, f2.y) <= 180) { // 只要在 180 像素內全部牽連受傷
-              damageFish(f2, f2.x, f2.y);
-            }
+            if (dist(b.x, b.y, f2.x, f2.y) <= 180) damageFish(f2, f2.x, f2.y);
           }
         } else {
           // 一般子彈：單體傷害
@@ -1142,6 +1281,8 @@ function updateDrawPlasma() {
   }
   ctx.restore();
 }
+
+
 
 function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
   for(let i=0;i<count;i++){ 
@@ -1284,7 +1425,15 @@ function updateDrawParticles(){
   for(let i=particles.length-1;i>=0;i--){
     const p=particles[i]; const a=Math.max(0, p.life/p.maxLife); ctx.save(); ctx.globalAlpha=a;
     if(p.isCoin){ ctx.shadowColor='#ffd700'; ctx.shadowBlur=8; ctx.fillStyle='#ffd700'; ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#ffe866'; ctx.lineWidth=1; ctx.stroke(); }
-    else { ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill(); }
+    else { 
+      // ★ 加上 shadowBlur 讓普通圓點變成高科技發光粒子！
+      ctx.shadowColor = p.color; 
+      ctx.shadowBlur = 12; 
+      ctx.fillStyle = p.color; 
+      ctx.beginPath(); 
+      ctx.arc(p.x, p.y, p.size/2, 0, Math.PI*2); 
+      ctx.fill(); 
+    }
     ctx.restore(); p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--; 
     
     if(p.life<=0) {
@@ -1382,7 +1531,6 @@ function gameLoop(timestamp){
   }
 
   checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
-
   if(bossTimerActive && boss.state === 'active'){
     bossTimeLeft -= dt; const timeDisp = Math.max(0, Math.ceil(bossTimeLeft)); const el = document.getElementById('bossTimerNum'); el.textContent = timeDisp; el.className = timeDisp <= 3 ? 'urgent' : '';
     if(bossTimeLeft <= 0){ bossTimerActive = false; boss.state = 'dying'; boss.enterTimer = 2.5; document.getElementById('bossTimer').classList.remove('show'); setTimeout(()=> settleBossResult(false), 500); }
@@ -1475,10 +1623,80 @@ document.getElementById('betDown').addEventListener('click',()=>{ const i=BET_VA
 document.getElementById('betUp').addEventListener('click',()=>{ const i=BET_VALS.indexOf(betAmount); if(i<BET_VALS.length-1){ betAmount=BET_VALS[i+1]; updateHUD(); } });
 document.getElementById('autoBtn').addEventListener('click',()=>{ autoFire=!autoFire; const btn=document.getElementById('autoBtn'); btn.classList.toggle('active',autoFire); document.getElementById('autoText').textContent = autoFire ? '■ 停止自動' : '自動射擊'; });
 
-// 啟動
-for(let i=0;i<10;i++) setTimeout(spawnFish, i*250);
-updateHUD();
-requestAnimationFrame(gameLoop);
+// ════════════════════════════════════════════
+//  ⏳ 資源預載系統 (Loading System)
+// ════════════════════════════════════════════
+// 自動蒐集所有需要載入的圖片與音效
+const allAssetsToLoad = [
+  'gui.png', '+.png', '-.png', '倍數.png', '砲座.png', '砲管A.png', '砲管B.png', '砲管C.png', 'coin.png', '電漿彈.png',
+  ASSETS.background,
+  ASSETS.explosion ? ASSETS.explosion.sheet : null,
+  ASSETS.boss ? ASSETS.boss.sheet : null,
+  ...Object.values(ASSETS.fishSprites).map(f => f.sheet),
+  ...Object.values(SOUNDS)
+].filter(Boolean); // 過濾掉空白項目
+
+// 去除重複的 URL
+const uniqueAssets = [...new Set(allAssetsToLoad)];
+let loadedCount = 0;
+const totalCount = uniqueAssets.length;
+
+const fillEl = document.getElementById('loadingBarFill');
+const textEl = document.getElementById('loadingText');
+const progressEl = document.getElementById('loadingProgress');
+const startBtn = document.getElementById('startBtn');
+
+function updateProgress() {
+  loadedCount++;
+  const percent = Math.floor((loadedCount / totalCount) * 100);
+  fillEl.style.width = percent + '%';
+  textEl.textContent = `載入中... ${percent}%`;
+
+  if (loadedCount >= totalCount) {
+    // 載入 100% 後，延遲 0.3 秒隱藏讀條，秀出「開始按鈕」
+    setTimeout(() => {
+      progressEl.style.display = 'none';
+      startBtn.style.display = 'block';
+    }, 300);
+  }
+}
+
+// 執行暴力預載
+uniqueAssets.forEach(url => {
+  if (url.endsWith('.mp3') || url.endsWith('.wav')) {
+    const audio = new Audio();
+    audio.oncanplaythrough = updateProgress;
+    audio.onerror = updateProgress; // 若找不到檔案也視為通過，避免卡死
+    audio.src = url;
+    audio.load();
+  } else if (url.endsWith('.webm') || url.endsWith('.mp4')) {
+    const v = document.createElement('video');
+    v.oncanplaythrough = updateProgress;
+    v.onerror = updateProgress;
+    v.src = url;
+  } else {
+    const img = new Image();
+    img.onload = updateProgress;
+    img.onerror = updateProgress;
+    img.src = url;
+  }
+});
+
+// ★ 點擊開始按鈕 (解鎖音樂並進入遊戲)
+startBtn.addEventListener('click', () => {
+  // 1. 淡出隱藏 Loading 畫面
+  const ls = document.getElementById('loadingScreen');
+  ls.style.opacity = '0';
+  setTimeout(() => ls.style.display = 'none', 500);
+
+  // 2. 初始化介面與首批魚群
+  updateHUD();
+  for(let i=0; i<10; i++) setTimeout(spawnFish, i*200);
+
+  // 3. 啟動遊戲迴圈 (這時音樂也會透過 mousedown 事件同步被合法解鎖播放！)
+  lastTime = performance.now();
+  requestAnimationFrame(gameLoop);
+});
 </script>
 </body>
 </html>
