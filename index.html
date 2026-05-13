@@ -1684,8 +1684,20 @@ uniqueAssets.forEach(url => {
   }
 });
 
-// ★ 點擊開始按鈕 (解鎖音樂並進入遊戲)
+// ★ 點擊開始按鈕 (解鎖音樂、進入遊戲、並請求全螢幕)
 startBtn.addEventListener('click', () => {
+  // 0. 請求全螢幕 (跨瀏覽器相容寫法)
+  const docElm = document.documentElement;
+  if (docElm.requestFullscreen) {
+    docElm.requestFullscreen().catch(err => console.log("全螢幕請求被拒絕:", err));
+  } else if (docElm.webkitRequestFullScreen) { // Safari & Chrome
+    docElm.webkitRequestFullScreen();
+  } else if (docElm.mozRequestFullScreen) { // Firefox
+    docElm.mozRequestFullScreen();
+  } else if (docElm.msRequestFullscreen) { // IE/Edge
+    docElm.msRequestFullscreen();
+  }
+
   // 1. 淡出隱藏 Loading 畫面
   const ls = document.getElementById('loadingScreen');
   ls.style.opacity = '0';
