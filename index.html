@@ -310,7 +310,8 @@
   /* ── ⏳ Loading 蓋板樣式 ── */
   #loadingScreen {
     position: fixed; inset: 0; z-index: 9999;
-    background: url('Loading.jpg') center/cover no-repeat #001f3f;
+    /* ★ 改為 contain：保證全圖完整顯示，但太寬扁的螢幕左右兩側會有黑邊 */
+    background: url('Loading.jpg') center / contain no-repeat #000;
     display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
     padding-bottom: 8%; 
     transition: opacity 0.5s ease-out; 
@@ -579,15 +580,31 @@ const SOUNDS = {
   bgm:   'music.mp3'
 };
 
+// ════════════════════════════════════════════
+//  🎵 音效引擎 (效能優化版 - Audio Pool)
+// ════════════════════════════════════════════
 const AudioEngine = {
   bgmAudio: null,
-  // 播放短音效 (每次產生新物件，支援快速連發疊音)
+  pool: {}, // ★ 新增：音效回收池
+
   play: function(src, volume = 1.0) {
-    const sound = new Audio(src);
+    if (!this.pool[src]) this.pool[src] = []; // 沒這個池子就建一個
+    
+    // 尋找池子裡「已經播完」或「被暫停」的閒置音效
+    let sound = this.pool[src].find(a => a.paused || a.ended);
+    
+    if (!sound) {
+      // ⚠️ 防爆機制：如果同一個音效同時重疊播放超過 10 個，就直接放棄播放，保護手機記憶體
+      if (this.pool[src].length > 10) return; 
+      sound = new Audio(src);
+      this.pool[src].push(sound);
+    }
+    
     sound.volume = volume;
-    sound.play().catch(() => {}); // 攔截尚未互動前的報錯
+    sound.currentTime = 0; // 把進度條拉回最前面重新播放
+    sound.play().catch(() => {});
   },
-  // 播放背景音樂 (循環播放)
+
   playBGM: function(src, volume = 0.4) {
     if (!this.bgmAudio) {
       this.bgmAudio = new Audio(src);
@@ -1424,11 +1441,12 @@ function drawCrosshair(){
 function updateDrawParticles(){
   for(let i=particles.length-1;i>=0;i--){
     const p=particles[i]; const a=Math.max(0, p.life/p.maxLife); ctx.save(); ctx.globalAlpha=a;
-    if(p.isCoin){ ctx.shadowColor='#ffd700'; ctx.shadowBlur=8; ctx.fillStyle='#ffd700'; ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill(); ctx.strokeStyle='#ffe866'; ctx.lineWidth=1; ctx.stroke(); }
+    if(p.isCoin){ 
+      ctx.shadowColor='#ffd700'; ctx.shadowBlur=8; ctx.fillStyle='#ffd700'; 
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill(); 
+      ctx.strokeStyle='#ffe866'; ctx.lineWidth=1; ctx.stroke(); 
+    }
     else { 
-      // ★ 加上 shadowBlur 讓普通圓點變成高科技發光粒子！
-      ctx.shadowColor = p.color; 
-      ctx.shadowBlur = 12; 
       ctx.fillStyle = p.color; 
       ctx.beginPath(); 
       ctx.arc(p.x, p.y, p.size/2, 0, Math.PI*2); 
