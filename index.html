@@ -1188,12 +1188,13 @@ function spawnFlyingCoins(x, y, mult) {
   }
 }
 
-// 💰 更新與繪製飛入 UI 的金幣 (Canvas 原生繪製 + 音效防洪機制)
+// 💰 更新與繪製飛入 UI 的金幣 (修正：無限繞圈與位置偏移 bug)
 function updateDrawFlyingCoins(dt) {
-  const targetX = 300, targetY = 680; // 左下角金幣 UI 的精準座標
+  // ★ 修正為精準的 UI 金幣圖示座標 (依據你最新版的 CSS 座標)
+  const targetX = 110, targetY = 680; 
   if (!coinImg.complete) return; 
 
-  let coinsHitThisFrame = false; // ★ 新增：紀錄這一幀有沒有金幣抵達
+  let coinsHitThisFrame = false; 
 
   ctx.save();
   for(let i = flyingCoins.length - 1; i >= 0; i--) {
@@ -1204,12 +1205,16 @@ function updateDrawFlyingCoins(dt) {
       c.x += c.vx; c.y += c.vy; c.vy += 0.4; c.vx *= 0.92; c.vy *= 0.92;
     } else {
       let dx = targetX - c.x, dy = targetY - c.y, d = Math.hypot(dx, dy);
-      if (d < 40) {
+      
+      // ★ 加入防呆機制 (c.flySpeed >= d)：防止掉幀時金幣飛太快越過目標，變成無限繞圈！
+      if (d < 45 || c.flySpeed >= d) {
         flyingCoins.splice(i, 1);
-        coinsHitThisFrame = true; // ★ 標記有金幣抵達，但不馬上播音效！
+        coinsHitThisFrame = true; 
         continue;
       }
-      c.flySpeed += 2.2; c.x += (dx / d) * c.flySpeed; c.y += (dy / d) * c.flySpeed;
+      c.flySpeed += 2.2; 
+      c.x += (dx / d) * c.flySpeed; 
+      c.y += (dy / d) * c.flySpeed;
     }
     
     let size = 36 * c.scale;
@@ -1217,13 +1222,11 @@ function updateDrawFlyingCoins(dt) {
   }
   ctx.restore();
 
-  // ★ 終極優化：不管這幀有 1 個還是 60 個金幣抵達，音效跟動畫都只執行「1 次」！
   if (coinsHitThisFrame) {
     AudioEngine.play(SOUNDS.coin, 0.4); 
     const el = document.getElementById('coinsDisplay');
     if(el) { 
       el.style.transform = 'scale(1.35)'; 
-      // 清除前一次的計時器，避免動畫錯亂重疊
       if (window.coinTimer) clearTimeout(window.coinTimer);
       window.coinTimer = setTimeout(()=> el.style.transform = 'scale(1)', 80); 
     }
@@ -1235,17 +1238,28 @@ function spawnExplosion(x, y, scale=1.0){
   explosions.push({ x, y, scale, frame: 0, frameTimer: 0, frameDuration: 1 / ASSETS.explosion.fps, done: false });
 }
 
-// ⚡ 繪製爆炸特效 (移除 screen 混合模式，這在手機 GPU 上非常致命)
+// ⚡ 繪製爆炸特效 (修正：將 screen 混合模式移到迴圈外，兼顧效能與發光效果)
 function updateDrawExplosions(dt){
   if(!explosionImg || !explosionImg.complete) return;
   const cfg = ASSETS.explosion; const fw = cfg.frameW, fh = cfg.frameH;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen'; // ★ 恢復黑底去背的發光效果！
+
   for(let i=explosions.length-1; i>=0; i--){
     const e = explosions[i]; if(e.done){ explosions.splice(i,1); continue; }
-    e.frameTimer += dt; if(e.frameTimer >= e.frameDuration){ e.frameTimer -= e.frameDuration; e.frame++; if(e.frame >= cfg.frames){ e.done = true; continue; } }
+    e.frameTimer += dt; 
+    if(e.frameTimer >= e.frameDuration){ 
+      e.frameTimer -= e.frameDuration; e.frame++; 
+      if(e.frame >= cfg.frames){ e.done = true; continue; } 
+    }
     const dw = fw * e.scale, dh = fh * e.scale;
-    // ★ 移除 ctx.save() 與 ctx.globalCompositeOperation，直接畫上去即可
+    
+    // ★ 加上透明度，讓爆炸尾聲更自然淡出
+    ctx.globalAlpha = 1 - (e.frame / cfg.frames);
     ctx.drawImage(explosionImg, e.frame * fw, 0, fw, fh, e.x - dw/2, e.y - dh/2, dw, dh); 
   }
+  ctx.restore();
 }
 // ⚡ 繪製電漿範圍爆炸
 function updateDrawPlasma() {
@@ -1441,21 +1455,30 @@ function updateDrawParticles(){
   }
   ctx.globalAlpha = 1.0; // ★ 迴圈跑完後，統一重置透明度即可
 }
-// ⚡ 繪製飄浮文字 (大幅降低 Canvas 狀態切換耗能)
+// ⚡ 繪製飄浮文字 (iPhone 終極效能版：字體快取機制)
 function updateDrawFloatingTexts(){
   ctx.textAlign = 'center'; 
   ctx.textBaseline = 'middle';
+  let lastFont = ''; // ★ 建立字體快取
+
   for(let i = floatingTexts.length - 1; i >= 0; i--){
     const t = floatingTexts[i]; 
     ctx.globalAlpha = t.life / t.maxLife; 
     ctx.fillStyle = t.color; 
-    ctx.font = `bold ${t.size}px Arial`; 
+    
+    // ★ 只有當字體大小改變時，才去呼叫極度耗能的 ctx.font
+    let currentFont = `bold ${t.size}px Arial`;
+    if (currentFont !== lastFont) {
+      ctx.font = currentFont;
+      lastFont = currentFont;
+    }
+
     ctx.fillText(t.text, t.x, t.y); 
     t.y -= 1.6; 
     t.life--; 
     if(t.life <= 0) floatingTexts.splice(i, 1);
   }
-  ctx.globalAlpha = 1.0; // 迴圈結束後統一重置透明度
+  ctx.globalAlpha = 1.0; 
 }
 
 // ── 智慧型快取變數 ──
