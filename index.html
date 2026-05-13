@@ -1095,13 +1095,12 @@ function fireBullet(tx, ty) {
 
 // 抽取出來的子彈生成函式
 function createBullet(x, y, angle, speed, type) {
-  let b = bulletPool.length > 0 ? bulletPool.pop() : { trail: [] };
+  let b = bulletPool.length > 0 ? bulletPool.pop() : {}; // ★ 不再需要 trail 陣列！
   b.x = x; b.y = y;
   b.vx = Math.cos(angle) * speed; 
   b.vy = Math.sin(angle) * speed;
   b.life = 130;
   b.type = type; 
-  b.trail.length = 0; 
   bullets.push(b);
 }
 
@@ -1236,6 +1235,7 @@ function spawnExplosion(x, y, scale=1.0){
   explosions.push({ x, y, scale, frame: 0, frameTimer: 0, frameDuration: 1 / ASSETS.explosion.fps, done: false });
 }
 
+// ⚡ 繪製爆炸特效 (移除 screen 混合模式，這在手機 GPU 上非常致命)
 function updateDrawExplosions(dt){
   if(!explosionImg || !explosionImg.complete) return;
   const cfg = ASSETS.explosion; const fw = cfg.frameW, fh = cfg.frameH;
@@ -1243,7 +1243,8 @@ function updateDrawExplosions(dt){
     const e = explosions[i]; if(e.done){ explosions.splice(i,1); continue; }
     e.frameTimer += dt; if(e.frameTimer >= e.frameDuration){ e.frameTimer -= e.frameDuration; e.frame++; if(e.frame >= cfg.frames){ e.done = true; continue; } }
     const dw = fw * e.scale, dh = fh * e.scale;
-    ctx.save(); ctx.globalCompositeOperation = 'screen'; ctx.drawImage(explosionImg, e.frame * fw, 0, fw, fh, e.x - dw/2, e.y - dh/2, dw, dh); ctx.restore();
+    // ★ 移除 ctx.save() 與 ctx.globalCompositeOperation，直接畫上去即可
+    ctx.drawImage(explosionImg, e.frame * fw, 0, fw, fh, e.x - dw/2, e.y - dh/2, dw, dh); 
   }
 }
 // ⚡ 繪製電漿範圍爆炸
@@ -1316,33 +1317,37 @@ function updateDrawBubbles(dt){
 
 function drawBullet(b) {
   ctx.save();
-  if (b.trail.length > 1) {
-    let trailColor = 'rgba(50, 150, 255, 0.3)'; // Type 1 藍色尾跡
-    if (b.type === 2) trailColor = 'rgba(80, 220, 255, 0.3)'; // Type 2 雙管青藍
-    if (b.type === 3) trailColor = 'rgba(0, 255, 255, 0.4)';  // Type 3 電漿亮藍
+  
+  // ★ 數學計算尾跡長度，取代消耗記憶體的陣列紀錄
+  const speed = Math.hypot(b.vx, b.vy);
+  const angle = Math.atan2(b.vy, b.vx);
+  const trailLen = Math.min((130 - b.life) * speed, 12 * speed); // 模擬原本 12 幀的長度
+
+  if (trailLen > 0) {
+    let trailColor = 'rgba(50, 150, 255, 0.3)';
+    if (b.type === 2) trailColor = 'rgba(80, 220, 255, 0.3)';
+    if (b.type === 3) trailColor = 'rgba(0, 255, 255, 0.4)';
     ctx.strokeStyle = trailColor;
-    ctx.lineWidth = b.type === 3 ? 6 : 2; // 最強砲尾跡變粗
+    ctx.lineWidth = b.type === 3 ? 6 : 2;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    b.trail.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - Math.cos(angle) * trailLen, b.y - Math.sin(angle) * trailLen);
     ctx.stroke();
   }
   
   ctx.beginPath();
   if (b.type === 1 || !b.type) {
-    // 第一階：改成深藍色
     ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
     ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
   } else if (b.type === 2) {
-    // 第二階：維持原本的青藍色
     ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
     ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
   } else if (b.type === 3) {
-    // 第三階：兩倍大！發光電漿彈
     ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 0;
-    ctx.fillStyle = '#00bbff'; ctx.arc(b.x, b.y, 11, 0, Math.PI*2); ctx.fill(); // 半徑從 5.5 變成 11
+    ctx.fillStyle = '#00bbff'; ctx.arc(b.x, b.y, 11, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#e0ffff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
   }
   ctx.fill();
@@ -1436,11 +1441,23 @@ function updateDrawParticles(){
   }
   ctx.globalAlpha = 1.0; // ★ 迴圈跑完後，統一重置透明度即可
 }
+// ⚡ 繪製飄浮文字 (大幅降低 Canvas 狀態切換耗能)
 function updateDrawFloatingTexts(){
-  for(let i=floatingTexts.length-1;i>=0;i--){
-    const t=floatingTexts[i]; const a=t.life/t.maxLife; ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=t.color; ctx.shadowColor=t.color; ctx.shadowBlur=0; ctx.font=`bold ${t.size}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t.text,t.x,t.y); ctx.restore(); t.y-=1.6; t.life--; if(t.life<=0) floatingTexts.splice(i,1);
+  ctx.textAlign = 'center'; 
+  ctx.textBaseline = 'middle';
+  for(let i = floatingTexts.length - 1; i >= 0; i--){
+    const t = floatingTexts[i]; 
+    ctx.globalAlpha = t.life / t.maxLife; 
+    ctx.fillStyle = t.color; 
+    ctx.font = `bold ${t.size}px Arial`; 
+    ctx.fillText(t.text, t.x, t.y); 
+    t.y -= 1.6; 
+    t.life--; 
+    if(t.life <= 0) floatingTexts.splice(i, 1);
   }
+  ctx.globalAlpha = 1.0; // 迴圈結束後統一重置透明度
 }
+
 // ── 智慧型快取變數 ──
 let lastCoins = -1, lastScore = -1, lastBet = -1;
 
@@ -1521,10 +1538,11 @@ function gameLoop(timestamp){
   }
 
   for(let i=bullets.length-1;i>=0;i--){
-    const b=bullets[i]; b.trail.push({x:b.x,y:b.y}); if(b.trail.length>12) b.trail.shift(); b.x+=b.vx; b.y+=b.vy; b.life--;
+    const b=bullets[i]; 
+    // ★ 刪除了 trail.push，完全消除每幀的物件增生！
+    b.x+=b.vx; b.y+=b.vy; b.life--;
     
     if(b.life<=0||b.x<0||b.x>W||b.y<0||b.y>H){ 
-      // ★ 物件池：子彈死亡時不刪除，而是放回回收池
       bulletPool.push(bullets.splice(i,1)[0]); 
       continue; 
     }
