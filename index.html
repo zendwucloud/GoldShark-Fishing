@@ -1191,7 +1191,7 @@ function spawnFlyingCoins(x, y, mult) {
 
 // 💰 更新與繪製飛入 UI 的金幣 (Canvas 原生繪製 + 音效防洪機制)
 function updateDrawFlyingCoins(dt) {
-  const targetX = 110, targetY = 680; // 左下角金幣 UI 的精準座標
+  const targetX = 300, targetY = 680; // 左下角金幣 UI 的精準座標
   if (!coinImg.complete) return; 
 
   let coinsHitThisFrame = false; // ★ 新增：紀錄這一幀有沒有金幣抵達
