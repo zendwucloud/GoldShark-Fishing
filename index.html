@@ -825,13 +825,12 @@ function drawBoss(dt){
     // 1. 正常畫圖
     ctx.drawImage(fc, 0, 0, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
     
-    // 2. ★ 影子分身術：改用安全的 3000 像素位移，防止瀏覽器強制剔除
+    // 2. ★ 極速效能版：高溫電漿受擊閃光
     if(boss.hitFlash > 0){
       ctx.save();
-      ctx.globalAlpha = 0.6;
-      ctx.shadowColor = 'red'; ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 3000; ctx.shadowOffsetY = 0;
-      ctx.drawImage(fc, 0, 0, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2 - 3000, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(fc, 0, 0, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
       ctx.restore();
     }
   } else {
@@ -841,13 +840,12 @@ function drawBoss(dt){
     // 1. 正常畫圖
     ctx.drawImage(ASSETS.boss.img, srcX, srcY, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
     
-    // 2. ★ 影子分身術：改用安全的 3000 像素位移
+    // 2. ★ 極速效能版：高溫電漿受擊閃光
     if(boss.hitFlash > 0){
       ctx.save();
-      ctx.globalAlpha = 0.6;
-      ctx.shadowColor = 'red'; ctx.shadowBlur = 0;
-      ctx.shadowOffsetX = 3000; ctx.shadowOffsetY = 0;
-      ctx.drawImage(ASSETS.boss.img, srcX, srcY, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2 - 3000, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(ASSETS.boss.img, srcX, srcY, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
       ctx.restore();
     }
   }
@@ -910,22 +908,22 @@ function drawFishGeom(f) {
 function drawFishSprite(f, sprCfg) {
   const isReady = sprCfg.frames_cache || (sprCfg.img && sprCfg.img.complete);
   if (!isReady) return false;
-  
+
   const dw = sprCfg.displayW || sprCfg.frameW;
   const dh = sprCfg.displayH || sprCfg.frameH;
-  
-  // 是否需要垂直翻轉 (避免往左游時倒栽蔥)
   const isFacingLeft = Math.abs(f.angle) > Math.PI / 2;
 
-  // ── 1. 正常繪製階段 ──
   ctx.save(); 
   ctx.translate(f.x, f.y); 
   ctx.rotate(f.angle);
   if (isFacingLeft) ctx.scale(1, -1);
   if (sprCfg.bgMode === 'black') ctx.globalCompositeOperation = 'screen';
 
-  if (sprCfg.frames_cache) {
-    const fc = sprCfg.frames_cache[f.frame] || sprCfg.frames_cache[0];
+  // 取得目前的圖片來源 (快取或原圖)
+  const fc = sprCfg.frames_cache ? (sprCfg.frames_cache[f.frame] || sprCfg.frames_cache[0]) : null;
+
+  // ── 1. 正常繪製 ──
+  if (fc) {
     ctx.drawImage(fc, -dw / 2, -dh / 2, dw, dh);
   } else {
     const c = sprCfg.cols || 1;
@@ -933,30 +931,14 @@ function drawFishSprite(f, sprCfg) {
     const srcY = Math.floor(f.frame / c) * sprCfg.frameH;
     ctx.drawImage(sprCfg.img, srcX, srcY, sprCfg.frameW, sprCfg.frameH, -dw / 2, -dh / 2, dw, dh);
   }
-  ctx.restore();
 
-  // ── 2. 受擊紅光遮罩階段 ──
+  // ── 2. ★ 極速效能版：高溫電漿受擊閃光 ──
   if (f.hitFlash > 0) {
-    const shadowDist = 3000;
-    ctx.save();
+    // 關鍵魔法：切換為加法混色，不需要計算陰影，直接讓原本的圖形產生過曝的白熱化發光感！
+    ctx.globalCompositeOperation = 'lighter'; 
+    ctx.globalAlpha = 0.55; 
     
-    // ★ 終極解法：先在「未旋轉的絕對物理座標」往左退後 3000
-    ctx.translate(f.x - shadowDist, f.y);
-    
-    // 然後才做跟實體一模一樣的旋轉與翻轉
-    ctx.rotate(f.angle);
-    if (isFacingLeft) ctx.scale(1, -1);
-
-    // 設定絕對的紅色陰影，強迫它在實體螢幕上往右補償 3000
-    ctx.globalAlpha = 0.6; 
-    ctx.shadowColor = 'red'; 
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = shadowDist; 
-    ctx.shadowOffsetY = 0;
-
-    // 像平常一樣畫圖 (不加偏移，因為已經在 translate 時退後了)
-    if (sprCfg.frames_cache) {
-      const fc = sprCfg.frames_cache[f.frame] || sprCfg.frames_cache[0];
+    if (fc) {
       ctx.drawImage(fc, -dw / 2, -dh / 2, dw, dh);
     } else {
       const c = sprCfg.cols || 1;
@@ -964,9 +946,9 @@ function drawFishSprite(f, sprCfg) {
       const srcY = Math.floor(f.frame / c) * sprCfg.frameH;
       ctx.drawImage(sprCfg.img, srcX, srcY, sprCfg.frameW, sprCfg.frameH, -dw / 2, -dh / 2, dw, dh);
     }
-    ctx.restore();
   }
 
+  ctx.restore();
   return true;
 }
 
