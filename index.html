@@ -661,20 +661,7 @@ const FISH_TYPES = [
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [];
 // ★ 物件回收池
 let bulletPool = [], particlePool = [];
-// ★ 新增：DOM 金幣回收池 (一次建好，無限重複使用)
-const domCoinPool = [];
-// 等 HTML 載入完畢後再初始化金幣池
-window.addEventListener('DOMContentLoaded', () => {
-  const wrapperObj = document.getElementById('gameWrapper');
-  for(let i=0; i<60; i++){
-    const img = document.createElement('img');
-    img.src = 'coin.png';
-    img.className = 'flying-coin-element';
-    img.style.display = 'none'; // 初始隱藏
-    wrapperObj.appendChild(img);
-    domCoinPool.push(img);
-  }
-});
+
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
 
 const bubbles = Array.from({length:55}, ()=>({
@@ -1187,29 +1174,27 @@ function checkCollisions(){
   }
 }
 
-// 💰 生成噴發的金幣 (使用回收池)
+// 💰 生成噴發的金幣 (Canvas 極速版)
 function spawnFlyingCoins(x, y, mult) {
-  const count = Math.min(30, Math.max(3, Math.floor(mult / 1.5)));
+  // 最高允許噴出 60 枚金幣 (打死大鯊魚時絕對超級壯觀)
+  const count = Math.min(60, Math.max(3, Math.floor(mult / 1.5))); 
   for (let i = 0; i < count; i++) {
-    // 從池子裡尋找沒有在用的金幣
-    const img = domCoinPool.find(el => el.style.display === 'none');
-    if (!img) continue; // 如果畫面上已經有 60 個金幣在飛，就放棄噴新的(保護手機)
-
-    img.style.display = 'block'; // 顯示金幣
     const angle = Math.random() * Math.PI * 2;
     const speed = rand(4, 12);
-    
     flyingCoins.push({
-      el: img, x: x, y: y,
+      x: x, y: y,
       vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      timer: 0, delay: rand(0.3, 0.7), scale: rand(0.8, 1.2), flySpeed: 3
+      timer: 0, delay: rand(0.1, 0.5), scale: rand(0.8, 1.2), flySpeed: 3
     });
   }
 }
 
-// 💰 更新與繪製飛入 UI 的金幣 (使用 Translate3d 硬體加速)
+// 💰 更新與繪製飛入 UI 的金幣 (Canvas 原生繪製，0 DOM 耗能)
 function updateDrawFlyingCoins(dt) {
-  const targetX = 300, targetY = 720 - 45; 
+  const targetX = 300, targetY = 680; // 鎖定左下角金幣 UI 的精準座標
+  if (!coinImg.complete) return; 
+
+  ctx.save();
   for(let i = flyingCoins.length - 1; i >= 0; i--) {
     let c = flyingCoins[i];
     c.timer += dt;
@@ -1219,10 +1204,9 @@ function updateDrawFlyingCoins(dt) {
     } else {
       let dx = targetX - c.x, dy = targetY - c.y, d = Math.hypot(dx, dy);
       if (d < 40) {
-        // 抵達終點：不刪除 DOM，只是把它隱藏起來還給池子
-        if(c.el) c.el.style.display = 'none'; 
+        // 抵達終點，直接從陣列刪除
         flyingCoins.splice(i, 1);
-        AudioEngine.play(SOUNDS.coin, 0.9); 
+        AudioEngine.play(SOUNDS.coin, 0.4); 
         const el = document.getElementById('coinsDisplay');
         if(el) { el.style.transform = 'scale(1.35)'; setTimeout(()=> el.style.transform = 'scale(1)', 80); }
         continue;
@@ -1230,11 +1214,11 @@ function updateDrawFlyingCoins(dt) {
       c.flySpeed += 2.2; c.x += (dx / d) * c.flySpeed; c.y += (dy / d) * c.flySpeed;
     }
     
-    // ★ 極速關鍵：改用 translate3d 開啟 GPU 加速，絕對不改 left/top
-    if (c.el) {
-      c.el.style.transform = `translate3d(${c.x - 18}px, ${c.y - 18}px, 0) scale(${c.scale})`;
-    }
+    // ★ 終極效能關鍵：拋棄 DOM，直接用 Canvas 把圖片畫出來！
+    let size = 36 * c.scale;
+    ctx.drawImage(coinImg, c.x - size/2, c.y - size/2, size, size);
   }
+  ctx.restore();
 }
 
 function spawnExplosion(x, y, scale=1.0){
