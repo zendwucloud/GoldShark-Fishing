@@ -6,15 +6,18 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>金鯊捕魚</title>
 <style>
-  /* 💸 飛行金幣的 HTML 樣式 */
+  /* 💸 飛行金幣的 HTML 樣式 (效能優化版) */
   .flying-coin-element {
     position: absolute;
-    width: 36px;  /* 配合你原本的大小 */
+    top: 0; left: 0; /* 固定原點，靠 JS 的 translate3d 移動 */
+    width: 36px;  
     height: 36px;
-    z-index: 100; /* 數字大於 UI 的 10，確保飛在最上面 */
-    pointer-events: none; /* 防止金幣擋住滑鼠點擊 */
-    transition: transform 0.1s linear; /* 讓移動看起來更滑順 */
+    z-index: 100; 
+    pointer-events: none; 
+    /* ★ 絕對禁止在這裡放 transition！ */
+    will-change: transform; /* 強制開啟 GPU 硬體加速 */
   }
+
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
   html, body {
@@ -382,6 +385,15 @@
     0%,100%{ transform:rotate(0deg); }
     50%{ transform:rotate(90deg); }
   }
+
+  /* ── 📱 手機版專用縮小設定 (螢幕寬度小於 950px 時觸發) ── */
+  @media (max-width: 950px) {
+    #loadingProgress { width: 75%; }
+    #loadingText { font-size: 16px; margin-bottom: 8px; text-shadow: 0 1px 3px #000, 0 0 8px #00bbff; }
+    #loadingBarBg { height: 16px; border-width: 2px; }
+    #startBtn { padding: 10px 40px; font-size: 20px; border-width: 2px; }
+  }
+
   @media (max-width:768px) and (orientation:portrait){
     #rotatePrompt { display:flex; }
   }
@@ -517,17 +529,17 @@ const ASSETS = {
   },
 
   fishSprites: {
-    1: { sheet: '小魚A.webp', frames: 168, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 85, hitH: 15, pathType: 'straight', sineAmp: 10, sineFreq: 0.01, formation: 'single', formationCount: 3, spawnDir: 'all' },  // 小魚A
     2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'straight', sineAmp: 25, formation: 'single', spawnDir: 'all' },  // 小魚B
-    3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line', formationCount: 3 },  // 飛魚
+    3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line' },  // 飛魚
     4: { sheet: '小丑魚.webp', frames: 145, cols: 5, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
-    5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', spawnDir: 'horizontal' },  // 河豚
-    6: { sheet: '章魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
-    8: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', hitW: 200, hitH: 150, spawnDir: 'horizontal' },  // 燈籠魚
-    9: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
-    10: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
-    11: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, spawnDir: 'horizontal' },  // 錘頭鯊
-    12: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
+    5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 河豚
+    6: { sheet: '龍蝦.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 龍蝦
+    8: { sheet: '章魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
+    9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
+    10: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
+    11: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
+    12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, spawnDir: 'horizontal' },  // 錘頭鯊
+    13: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
   }
 };
 
@@ -633,22 +645,36 @@ let bossTimeLeft        = BOSS_TIME_LIMIT;
 let bossTimerActive     = false;
 
 const FISH_TYPES = [
-  { id:1, name:'小魚A', color:'#ff9977', glowColor:'#ff6644', size:30, speed:0.2, hp:1, mult:2, freq:350 },
-  { id:2, name:'小魚B', color:'#88ddff', glowColor:'#44aaff', size:30, speed:0.5, hp:1, mult:3, freq:300 },
-  { id:3, name:'飛魚', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:0.8, hp:1, mult:6, freq:100 },
-  { id:4, name:'小丑魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:1.2, hp:1, mult:8, freq:80 },
-  { id:5, name:'河豚', color:'#ff5544', glowColor:'#cc2200', size:65, speed:1.2, hp:1, mult:10, freq:30 },
-  { id:6, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:100, speed:1.5, hp:1, mult:12, freq:30 },
-  { id:8, name:'燈籠魚', color:'#44aa66', glowColor:'#228844', size:110, speed:2, hp:1, mult:12, freq:25 },
-  { id:9, name:'海龜', color:'#ff9977', glowColor:'#ff6644', size:30, speed:1, hp:1, mult:15, freq:25 },
-  { id:10, name:'鯊魚', color:'#88ddff', glowColor:'#44aaff', size:50, speed:3, hp:1, mult:20, freq:20 },
-  { id:11, name:'錘頭鯊', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:3.2, hp:1, mult:20, freq:20 },
-  { id:12, name:'魟魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:2.5, hp:1, mult:25, freq:15 },
+  { id:2, name:'小魚B', color:'#ff9977', glowColor:'#ff6644', size:30, speed:0.5, hp:1, mult:1, freq:300 },
+  { id:3, name:'飛魚', color:'#88ddff', glowColor:'#44aaff', size:30, speed:0.8, hp:1, mult:3, freq:100 },
+  { id:4, name:'小丑魚', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:1.2, hp:1, mult:6, freq:80 },
+  { id:5, name:'河豚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:1.2, hp:1, mult:8, freq:30 },
+  { id:6, name:'龍蝦', color:'#ff5544', glowColor:'#cc2200', size:30, speed:1.1, hp:1, mult:10, freq:30 },
+  { id:8, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:100, speed:1.5, hp:1, mult:12, freq:30 },
+  { id:9, name:'燈籠魚', color:'#44aa66', glowColor:'#228844', size:25, speed:2, hp:1, mult:12, freq:25 },
+  { id:10, name:'海龜', color:'#ff9977', glowColor:'#ff6644', size:30, speed:1, hp:1, mult:15, freq:25 },
+  { id:11, name:'鯊魚', color:'#88ddff', glowColor:'#44aaff', size:50, speed:3, hp:1, mult:20, freq:20 },
+  { id:12, name:'錘頭鯊', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:3.2, hp:1, mult:20, freq:20 },
+  { id:13, name:'魟魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:2.5, hp:1, mult:25, freq:15 },
 ];
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [];
 // ★ 物件回收池
 let bulletPool = [], particlePool = [];
+// ★ 新增：DOM 金幣回收池 (一次建好，無限重複使用)
+const domCoinPool = [];
+// 等 HTML 載入完畢後再初始化金幣池
+window.addEventListener('DOMContentLoaded', () => {
+  const wrapperObj = document.getElementById('gameWrapper');
+  for(let i=0; i<60; i++){
+    const img = document.createElement('img');
+    img.src = 'coin.png';
+    img.className = 'flying-coin-element';
+    img.style.display = 'none'; // 初始隱藏
+    wrapperObj.appendChild(img);
+    domCoinPool.push(img);
+  }
+});
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
 
 const bubbles = Array.from({length:55}, ()=>({
@@ -1179,88 +1205,52 @@ function checkCollisions(){
   }
 }
 
-// 💰 生成噴發的金幣
+// 💰 生成噴發的金幣 (使用回收池)
 function spawnFlyingCoins(x, y, mult) {
-  // 根據倍率決定噴出幾枚
   const count = Math.min(30, Math.max(3, Math.floor(mult / 1.5)));
-  const wrapper = document.getElementById('gameWrapper');
-
   for (let i = 0; i < count; i++) {
-    // 建立 HTML 圖片元件
-    const img = document.createElement('img');
-    img.src = 'coin.png';
-    img.className = 'flying-coin-element';
-    
-    // 設定初始座標
-    img.style.left = x + 'px';
-    img.style.top = y + 'px';
-    
-    // 將金幣塞進陣列交給引擎管理
+    // 從池子裡尋找沒有在用的金幣
+    const img = domCoinPool.find(el => el.style.display === 'none');
+    if (!img) continue; // 如果畫面上已經有 60 個金幣在飛，就放棄噴新的(保護手機)
+
+    img.style.display = 'block'; // 顯示金幣
     const angle = Math.random() * Math.PI * 2;
     const speed = rand(4, 12);
     
     flyingCoins.push({
-      el: img, // 儲存這個 DOM 元件
-      x: x, y: y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      timer: 0,
-      delay: rand(0.3, 0.7),
-      scale: rand(0.8, 1.2),
-      flySpeed: 3
+      el: img, x: x, y: y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      timer: 0, delay: rand(0.3, 0.7), scale: rand(0.8, 1.2), flySpeed: 3
     });
-    
-    wrapper.appendChild(img);
   }
 }
 
-// 💰 更新與繪製飛入 UI 的金幣
+// 💰 更新與繪製飛入 UI 的金幣 (使用 Translate3d 硬體加速)
 function updateDrawFlyingCoins(dt) {
-  const targetX = 300;  // 你的財庫 X 座標
-  const targetY = 720 - 45; // 你的財庫 Y 座標
-  
+  const targetX = 300, targetY = 720 - 45; 
   for(let i = flyingCoins.length - 1; i >= 0; i--) {
     let c = flyingCoins[i];
     c.timer += dt;
     
     if (c.timer < c.delay) {
-      // 階段一：爆炸噴發
-      c.x += c.vx; c.y += c.vy;
-      c.vy += 0.4;
-      c.vx *= 0.92; c.vy *= 0.92;
+      c.x += c.vx; c.y += c.vy; c.vy += 0.4; c.vx *= 0.92; c.vy *= 0.92;
     } else {
-      // 階段二：精準飛入財庫
-      let dx = targetX - c.x;
-      let dy = targetY - c.y;
-      let d = Math.hypot(dx, dy);
-      
+      let dx = targetX - c.x, dy = targetY - c.y, d = Math.hypot(dx, dy);
       if (d < 40) {
-        // 抵達終點：移除圖片元件
-        if(c.el && c.el.parentNode) c.el.parentNode.removeChild(c.el);
+        // 抵達終點：不刪除 DOM，只是把它隱藏起來還給池子
+        if(c.el) c.el.style.display = 'none'; 
         flyingCoins.splice(i, 1);
-        
-        // ★ 加上這行：每一枚金幣抵達時，都會發出一次清脆的叮噹聲！
         AudioEngine.play(SOUNDS.coin, 0.9); 
-        
-        // 觸發數字彈跳
         const el = document.getElementById('coinsDisplay');
-        if(el) {
-          el.style.transform = 'scale(1.35)';
-          setTimeout(()=> el.style.transform = 'scale(1)', 80);
-        }
+        if(el) { el.style.transform = 'scale(1.35)'; setTimeout(()=> el.style.transform = 'scale(1)', 80); }
         continue;
       }
-      
-      c.flySpeed += 2.2;
-      c.x += (dx / d) * c.flySpeed;
-      c.y += (dy / d) * c.flySpeed;
+      c.flySpeed += 2.2; c.x += (dx / d) * c.flySpeed; c.y += (dy / d) * c.flySpeed;
     }
     
-    // ★ 更新圖片元件的位置與縮放，讓它看起來飛在 UI 上方
+    // ★ 極速關鍵：改用 translate3d 開啟 GPU 加速，絕對不改 left/top
     if (c.el) {
-      c.el.style.left = (c.x - 18) + 'px'; // 扣掉一半寬度置中
-      c.el.style.top = (c.y - 18) + 'px';
-      c.el.style.transform = `scale(${c.scale})`;
+      c.el.style.transform = `translate3d(${c.x - 18}px, ${c.y - 18}px, 0) scale(${c.scale})`;
     }
   }
 }
@@ -1365,17 +1355,17 @@ function drawBullet(b) {
   ctx.beginPath();
   if (b.type === 1 || !b.type) {
     // 第一階：改成深藍色
-    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 16;
+    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
     ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
   } else if (b.type === 2) {
     // 第二階：維持原本的青藍色
-    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 16;
+    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
     ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
   } else if (b.type === 3) {
     // 第三階：兩倍大！發光電漿彈
-    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 24;
+    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 0;
     ctx.fillStyle = '#00bbff'; ctx.arc(b.x, b.y, 11, 0, Math.PI*2); ctx.fill(); // 半徑從 5.5 變成 11
     ctx.fillStyle = '#e0ffff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
   }
@@ -1462,7 +1452,7 @@ function updateDrawParticles(){
 }
 function updateDrawFloatingTexts(){
   for(let i=floatingTexts.length-1;i>=0;i--){
-    const t=floatingTexts[i]; const a=t.life/t.maxLife; ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=t.color; ctx.shadowColor=t.color; ctx.shadowBlur=12; ctx.font=`bold ${t.size}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t.text,t.x,t.y); ctx.restore(); t.y-=1.6; t.life--; if(t.life<=0) floatingTexts.splice(i,1);
+    const t=floatingTexts[i]; const a=t.life/t.maxLife; ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=t.color; ctx.shadowColor=t.color; ctx.shadowBlur=0; ctx.font=`bold ${t.size}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t.text,t.x,t.y); ctx.restore(); t.y-=1.6; t.life--; if(t.life<=0) floatingTexts.splice(i,1);
   }
 }
 function updateHUD() { 
