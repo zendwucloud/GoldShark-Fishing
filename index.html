@@ -1115,7 +1115,7 @@ function damageFish(f, hitX, hitY) {
   else { f.hp = Math.max(0.1, f.hp - (f.maxHp / (f.mult * 1.5))); }
 
   if(f.hp <= 0){
-    f.dead = true; const won = betAmount * f.mult; sessionScore += won; updateHUD();
+    f.dead = true; const won = betAmount * f.mult; sessionScore += won; 
     const exScale = f.size / 120;
     spawnExplosion(f.x, f.y, Math.max(0.6, Math.min(2.5, exScale * 2.5)));
     spawnFlyingCoins(f.x, f.y, f.mult); // 噴出立體金幣
@@ -1189,10 +1189,12 @@ function spawnFlyingCoins(x, y, mult) {
   }
 }
 
-// 💰 更新與繪製飛入 UI 的金幣 (Canvas 原生繪製，0 DOM 耗能)
+// 💰 更新與繪製飛入 UI 的金幣 (Canvas 原生繪製 + 音效防洪機制)
 function updateDrawFlyingCoins(dt) {
-  const targetX = 300, targetY = 680; // 鎖定左下角金幣 UI 的精準座標
+  const targetX = 110, targetY = 680; // 左下角金幣 UI 的精準座標
   if (!coinImg.complete) return; 
+
+  let coinsHitThisFrame = false; // ★ 新增：紀錄這一幀有沒有金幣抵達
 
   ctx.save();
   for(let i = flyingCoins.length - 1; i >= 0; i--) {
@@ -1204,21 +1206,29 @@ function updateDrawFlyingCoins(dt) {
     } else {
       let dx = targetX - c.x, dy = targetY - c.y, d = Math.hypot(dx, dy);
       if (d < 40) {
-        // 抵達終點，直接從陣列刪除
         flyingCoins.splice(i, 1);
-        AudioEngine.play(SOUNDS.coin, 0.4); 
-        const el = document.getElementById('coinsDisplay');
-        if(el) { el.style.transform = 'scale(1.35)'; setTimeout(()=> el.style.transform = 'scale(1)', 80); }
+        coinsHitThisFrame = true; // ★ 標記有金幣抵達，但不馬上播音效！
         continue;
       }
       c.flySpeed += 2.2; c.x += (dx / d) * c.flySpeed; c.y += (dy / d) * c.flySpeed;
     }
     
-    // ★ 終極效能關鍵：拋棄 DOM，直接用 Canvas 把圖片畫出來！
     let size = 36 * c.scale;
     ctx.drawImage(coinImg, c.x - size/2, c.y - size/2, size, size);
   }
   ctx.restore();
+
+  // ★ 終極優化：不管這幀有 1 個還是 60 個金幣抵達，音效跟動畫都只執行「1 次」！
+  if (coinsHitThisFrame) {
+    AudioEngine.play(SOUNDS.coin, 0.4); 
+    const el = document.getElementById('coinsDisplay');
+    if(el) { 
+      el.style.transform = 'scale(1.35)'; 
+      // 清除前一次的計時器，避免動畫錯亂重疊
+      if (window.coinTimer) clearTimeout(window.coinTimer);
+      window.coinTimer = setTimeout(()=> el.style.transform = 'scale(1)', 80); 
+    }
+  }
 }
 
 function spawnExplosion(x, y, scale=1.0){
@@ -1394,48 +1404,65 @@ function drawCrosshair(){
   ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); ctx.restore();
   ctx.save(); ctx.strokeStyle='rgba(255,220,60,0.12)'; ctx.lineWidth=1; ctx.setLineDash([5,10]); ctx.beginPath(); ctx.moveTo(cannon.x,cannon.y); ctx.lineTo(x,y); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
 }
+// ✨ 更新與繪製粒子 (移除不必要的 Save/Restore 效能瓶頸)
 function updateDrawParticles(){
   for(let i=particles.length-1;i>=0;i--){
-    const p=particles[i]; const a=Math.max(0, p.life/p.maxLife); ctx.save(); ctx.globalAlpha=a;
+    const p=particles[i]; 
+    const a=Math.max(0, p.life/p.maxLife); 
+
     if(p.isCoin){ 
+      // 大白鯊死掉時噴的金色粒子才需要特別處理陰影
+      ctx.save(); 
+      ctx.globalAlpha=a;
       ctx.shadowColor='#ffd700'; ctx.shadowBlur=8; ctx.fillStyle='#ffd700'; 
       ctx.beginPath(); ctx.arc(p.x,p.y,p.size/2,0,Math.PI*2); ctx.fill(); 
       ctx.strokeStyle='#ffe866'; ctx.lineWidth=1; ctx.stroke(); 
+      ctx.restore();
     }
     else { 
+      // ★ 一般火花粒子直接畫，省下幾百次的效能浪費！
+      ctx.globalAlpha = a;
       ctx.fillStyle = p.color; 
       ctx.beginPath(); 
       ctx.arc(p.x, p.y, p.size/2, 0, Math.PI*2); 
       ctx.fill(); 
     }
-    ctx.restore(); p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--; 
+    
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.life--; 
     
     if(p.life<=0) {
-      // ★ 物件池：粒子消失時放回回收池
       particlePool.push(particles.splice(i,1)[0]);
     }
   }
+  ctx.globalAlpha = 1.0; // ★ 迴圈跑完後，統一重置透明度即可
 }
 function updateDrawFloatingTexts(){
   for(let i=floatingTexts.length-1;i>=0;i--){
     const t=floatingTexts[i]; const a=t.life/t.maxLife; ctx.save(); ctx.globalAlpha=a; ctx.fillStyle=t.color; ctx.shadowColor=t.color; ctx.shadowBlur=0; ctx.font=`bold ${t.size}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t.text,t.x,t.y); ctx.restore(); t.y-=1.6; t.life--; if(t.life<=0) floatingTexts.splice(i,1);
   }
 }
-function updateHUD() { 
-  document.getElementById('coinsDisplay').textContent = coins.toLocaleString(); 
-  document.getElementById('scoreDisplay').textContent = sessionScore.toLocaleString(); 
-  document.getElementById('betDisplay').textContent = betAmount; 
+// ── 智慧型快取變數 ──
+let lastCoins = -1, lastScore = -1, lastBet = -1;
 
-  // ★ 新增：依照押注倍數切換砲管圖檔
-  const barrelEl = document.getElementById('cannonBarrel');
-  if (barrelEl) {
-    if (betAmount < 20) {
-      barrelEl.src = '砲管A.png'; // 1, 5, 10 倍
-    } else if (betAmount < 100) {
-      barrelEl.src = '砲管B.png'; // 20, 50 倍
-    } else {
-      barrelEl.src = '砲管C.png'; // 100 倍
+// 📊 更新 UI (智慧型效能版：數值有改變才去動 DOM，徹底解決排版卡頓)
+function updateHUD() { 
+  if (coins !== lastCoins) { 
+    document.getElementById('coinsDisplay').textContent = coins.toLocaleString(); 
+    lastCoins = coins; 
+  }
+  if (sessionScore !== lastScore) { 
+    document.getElementById('scoreDisplay').textContent = sessionScore.toLocaleString(); 
+    lastScore = sessionScore; 
+  }
+  if (betAmount !== lastBet) {
+    document.getElementById('betDisplay').textContent = betAmount; 
+    const barrelEl = document.getElementById('cannonBarrel');
+    if (barrelEl) {
+      if (betAmount < 20) barrelEl.src = '砲管A.png'; 
+      else if (betAmount < 100) barrelEl.src = '砲管B.png'; 
+      else barrelEl.src = '砲管C.png'; 
     }
+    lastBet = betAmount;
   }
 }
 
@@ -1505,6 +1532,7 @@ function gameLoop(timestamp){
   }
 
   checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
+  updateHUD();
   if(bossTimerActive && boss.state === 'active'){
     bossTimeLeft -= dt; const timeDisp = Math.max(0, Math.ceil(bossTimeLeft)); const el = document.getElementById('bossTimerNum'); el.textContent = timeDisp; el.className = timeDisp <= 3 ? 'urgent' : '';
     if(bossTimeLeft <= 0){ bossTimerActive = false; boss.state = 'dying'; boss.enterTimer = 2.5; document.getElementById('bossTimer').classList.remove('show'); setTimeout(()=> settleBossResult(false), 500); }
