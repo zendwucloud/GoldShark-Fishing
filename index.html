@@ -567,7 +567,7 @@
 // ════════════════════════════════════════════
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const MAX_PARTICLES = isIOS ? 150 : 400;
+const MAX_PARTICLES = isIOS ? 80 : 400;
 
 // ════════════════════════════════════════════
 //  ★ 資源配置區 (Manager 匯出時會自動替換這裡)
@@ -753,8 +753,8 @@ const FISH_TYPES = [
 ];
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [];
-// ★ 物件回收池
-let bulletPool = [], particlePool = [], explosionPool = [], plasmaPool = [], floatingTextPool = [];
+// ★ 物件回收池 — 新增 fishPool，讓死掉的魚物件可以被複用，消除最大的 GC 來源
+let bulletPool = [], particlePool = [], explosionPool = [], plasmaPool = [], floatingTextPool = [], fishPool = [];
 
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
 
@@ -908,7 +908,9 @@ function triggerBoss(){
   boss.enterTimer = BOSS_ENTER_DURATION; 
   bossTimeLeft = currentLimit; 
   bossTimerActive = false; 
-  fishes = [];
+  // ★ 效能優化：回收現有魚到 pool，而不是直接拋棄（原本 fishes = [] 造成大量 GC）
+  for(let i = 0; i < fishes.length; i++) fishPool.push(fishes[i]);
+  fishes.length = 0;
   
   // 更新 UI 等級標題
   const hpLabel = _domCache.bossHpLabel;
@@ -1100,19 +1102,16 @@ function drawFish(f) {
   }
 }
 
+// ★ 效能優化：totalW 是常數，提前算好，不在 spawnFish 裡每次重算
+let _totalFishWeight = 0;
+// （在資源載入後、遊戲開始前計算，見 startBtn handler）
+
 function spawnFish(){
-  // ★ 魚數量上限（設為 999 等於幾乎不限制）
-  const MAX_FISH = isIOS ? 999 : 999;
+  // ★ 魚數量上限：iOS 嚴格限制為 35 隻，桌機不限制
+  const MAX_FISH = isIOS ? 35 : 999;
   if(fishes.length >= MAX_FISH) return;
 
-  // ★ 動態計算總權重 (優先使用 ASSETS 裡的 freq，沒有才用原本的 t.freq)
-  let totalW = 0;
-  FISH_TYPES.forEach(t => {
-    const sprCfg = ASSETS.fishSprites[t.id] || {};
-    totalW += (sprCfg.freq !== undefined) ? sprCfg.freq : t.freq;
-  });
-
-  let r = Math.random() * totalW;
+  let r = Math.random() * _totalFishWeight;
   let baseType = FISH_TYPES[0];
 
   for (let t of FISH_TYPES) {
@@ -1187,25 +1186,23 @@ function spawnFish(){
         oy = (-vy/spd * step * spacing * backDist) + (ny * sideSign * step * spacing * sideSpread);
       }
       
-    // 產生魚隻實體
-    fishes.push({
-      ...baseType,
+    // 產生魚隻實體 — ★ 優先從 fishPool 複用舊物件，消除最大的 GC 壓力來源
+    let fish = fishPool.length > 0 ? fishPool.pop() : {};
+    Object.assign(fish, baseType, {
       x: startX + ox, y: startY + oy, vx, vy,
       hp: f_hp, maxHp: f_hp,
       mult: f_mult, size: f_size,
       hitType: f_hitType, hitW: f_hitW, hitH: f_hitH,
       angle: Math.atan2(vy, vx),
-      pathType: pathType,             
-      
-      // ★ 將原本的 Math.random()... 替換成共用的 baseSinePhase
-      sinePhase: baseSinePhase,       
-      
-      sineAmp: sineAmp,               
-      sineFreq: sineFreq,             
+      pathType: pathType,
+      sinePhase: baseSinePhase,
+      sineAmp: sineAmp,
+      sineFreq: sineFreq,
       hitFlash: 0, dead: false,
       frame: 0, frameTimer: 0,
       sprCfg: sprCfg
     });
+    fishes.push(fish);
   }
 }
 
@@ -1373,14 +1370,14 @@ function checkCollisions(){
         
         // ★ 改為：根據子彈等級噴發大量科幻發光粒子
         let pColor = '#44eeff'; // 一階：青藍色
-        let pCount = 15;
+        let pCount = isIOS ? 8 : 15;
         let pSpd = 6;
-        if(b.type === 2) { pColor = '#00e5ff'; pCount = 25; pSpd = 8; }
-        if(b.type === 3) { pColor = '#bb88ff'; pCount = 45; pSpd = 14; } // 三階：巨大電漿紫爆破
+        if(b.type === 2) { pColor = '#00e5ff'; pCount = isIOS ? 12 : 25; pSpd = 8; }
+        if(b.type === 3) { pColor = '#bb88ff'; pCount = isIOS ? 20 : 45; pSpd = 14; }
         
-        // 1. 產生外圈科幻爆破粒子 (顏色跟隨子彈)
+        // 1. 產生外圈科幻爆破粒子
         spawnParticles(b.x, b.y, pColor, pCount, 2, pSpd, 35);
-        // 2. 產生內圈高亮核心 (模擬爆破瞬間的閃光)
+        // 2. 產生內圈高亮核心
         spawnParticles(b.x, b.y, '#ffffff', Math.floor(pCount/2), 1, pSpd*0.5, 20);
 
         if (b.type === 3) {
@@ -1405,16 +1402,18 @@ function checkCollisions(){
 
 // 💰 生成噴發的金幣 (Canvas 極速版)
 function spawnFlyingCoins(x, y, mult) {
-  // ★ iOS 效能優化：限制最多噴出金幣數，避免 Boss 死亡時瞬間壓垮手機
-  const maxCoins = isIOS ? 20 : 60;
-  const count = Math.min(maxCoins, Math.max(3, Math.floor(mult / 1.5))); 
+  // ★ iOS：總數上限 + 每次數量上限；桌機維持原本邏輯
+  const maxCoins = isIOS ? 12 : 60;
+  const MAX_FLYING = isIOS ? 30 : Infinity;
+  if (isIOS && flyingCoins.length >= MAX_FLYING) return;
+  const count = Math.min(maxCoins, Math.max(3, Math.floor(mult / (isIOS ? 2 : 1.5)))); 
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = rand(4, 12);
+    const speed = rand(4, isIOS ? 10 : 12);
     flyingCoins.push({
       x: x, y: y,
       vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      timer: 0, delay: rand(0.1, 0.5), scale: rand(0.8, 1.2), flySpeed: 3
+      timer: 0, delay: rand(isIOS ? 0.05 : 0.1, isIOS ? 0.3 : 0.5), scale: rand(0.8, 1.2), flySpeed: 3
     });
   }
 }
@@ -1820,12 +1819,15 @@ function gameLoop(timestamp){
   }
 
   spawnTimer++;
-  if(spawnTimer >= 75){ spawnTimer = 0; const n = Math.floor(rand(1,4)); for(let i=0;i<n;i++) spawnFish(); }
+  // ★ iOS 效能優化：降低生成頻率，iOS 每 110 幀最多生 2 隻，桌機維持原本邏輯
+  const spawnInterval = isIOS ? 110 : 75;
+  const spawnMax = isIOS ? 2 : 4;
+  if(spawnTimer >= spawnInterval){ spawnTimer = 0; const n = Math.floor(rand(1, spawnMax)); for(let i=0;i<n;i++) spawnFish(); }
 
 // ── 1. 邏輯更新階段：移動、動畫、死亡與邊界判定 ──
   for(let i=fishes.length-1; i>=0; i--){
     const f=fishes[i]; 
-    if(f.dead){ fishes.splice(i,1); continue; }
+    if(f.dead){ fishPool.push(fishes.splice(i,1)[0]); continue; } // ★ 死魚回收進 pool
     
     // 計算位移與角度
     if(f.pathType==='sine'){
@@ -1849,10 +1851,10 @@ function gameLoop(timestamp){
       while(f.frameTimer >= _fd){ f.frameTimer -= _fd; f.frame=(f.frame+1)%f.sprCfg.frames; }
     }
     
-    // 加大邊界判定範圍至 600
-    const m = 600; 
+    // ★ iOS 邊界 150px，桌機維持原本 600px（讓魚能完整穿越畫面）
+    const m = isIOS ? 150 : 600; 
     if(f.x < -m || f.x > W + m || f.y < -m || f.y > H + m){ 
-      fishes.splice(i,1); 
+      fishPool.push(fishes.splice(i,1)[0]);
     }
   }
 
@@ -2101,6 +2103,13 @@ startBtn.addEventListener('click', () => {
   _domCache.bossResult   = document.getElementById('bossResult');
   _domCache.bossHpLabel  = document.getElementById('bossHpLabel');
   _domCache.scoreMax     = document.querySelector('.score-max');
+
+  // ★ 效能優化：預計算魚種總權重（常數，只算一次）
+  _totalFishWeight = 0;
+  FISH_TYPES.forEach(t => {
+    const sprCfg = ASSETS.fishSprites[t.id] || {};
+    _totalFishWeight += (sprCfg.freq !== undefined) ? sprCfg.freq : t.freq;
+  });
 
   // 1. 淡出隱藏 Loading 畫面
   const ls = document.getElementById('loadingScreen');
