@@ -1582,18 +1582,27 @@ function gameLoop(timestamp){
   if(boss.state === 'idle' && sessionScore >= NORMAL_SCORE_CAP) triggerBoss();
   if(boss.state === 'active' || boss.state === 'entering') spawnTimer = 0;
 
-  // ★ 尋找自動射擊的目標 (排除已經死掉，以及畫面外的魚)
+  // ⚡ 尋找自動射擊的目標 (iPhone 極速雷達版：平方距離取代開根號)
   let target = null;
   if (autoFire) {
-    let minD = Infinity;
-    for (const f of fishes) {
-      if (f.dead) continue; // 拒絕鞭屍！不鎖定死魚
+    let minDistSq = Infinity; // 改為紀錄「距離的平方」
+    
+    // ★ 放棄效能較差的 for...of，改回最原始、執行速度最快的 for 迴圈
+    for (let i = 0, len = fishes.length; i < len; i++) {
+      const f = fishes[i];
       
-      // ★ 新增過濾器：只鎖定「X 在畫面內」且「Y 不會太低（避免大砲往下打）」的魚
-      if (f.x < 0 || f.x > W || f.y < 0 || f.y > H - 100) continue;
+      // 合併判斷條件，提早剔除無效目標，節省運算
+      if (f.dead || f.x < 0 || f.x > W || f.y < 0 || f.y > H - 100) continue;
 
-      const d = dist(cannon.x, cannon.y, f.x, f.y);
-      if (d < minD) { minD = d; target = f; }
+      // ★ 核心優化：拔掉極度耗能的 dist (Math.hypot)，直接算 X 軸與 Y 軸的平方和
+      const dx = cannon.x - f.x;
+      const dy = cannon.y - f.y;
+      const distSq = dx * dx + dy * dy; 
+
+      if (distSq < minDistSq) { 
+        minDistSq = distSq; 
+        target = f; 
+      }
     }
   }
 
