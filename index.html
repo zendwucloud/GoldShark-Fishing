@@ -667,7 +667,7 @@ const FISH_TYPES = [
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [];
 // ★ 物件回收池
-let bulletPool = [], particlePool = [];
+let bulletPool = [], particlePool = [], explosionPool = [], plasmaPool = [], floatingTextPool = [];
 
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
 
@@ -764,7 +764,7 @@ function settleNormalScore(){
   if(sessionScore <= 0) return;
   const earned = Math.floor(sessionScore * SCORE_TO_COIN);
   coins += earned;
-  floatingTexts.push({ x: W/2, y: H/2 - 60, text: `累積 ${sessionScore} 分 → +${earned} 金幣`, life:120, maxLife:120, color:'#ffd700', size:22 });
+  spawnFloatingText(W/2, H/2 - 60, `累積 ${sessionScore} 分 → +${earned} 金幣`, 120, '#ffd700', 22);
   sessionScore = 0; updateHUD();
 }
 function settleBossResult(killedInTime){
@@ -854,11 +854,11 @@ function checkBossCollision(){
     if((Math.pow(b.x - boss.x, 2) / Math.pow(ASSETS.boss.size * 1.8, 2)) + (Math.pow(b.y - boss.y, 2) / Math.pow(ASSETS.boss.size * 1.0, 2)) < 1){
       b.life = 0; boss.hp = Math.max(0, boss.hp - betAmount); boss.hitFlash = 4; updateBossHpBar();
       spawnParticles(b.x, b.y, '#ff4400', 10, 2, 7, 40);
-      floatingTexts.push({ x: b.x, y: b.y - 20, text: `-${betAmount}`, life:35, maxLife:35, color:'#ff6622', size:14 });
+      spawnFloatingText(b.x, b.y - 20, `-${betAmount}`, 35, '#ff6622', 14);
       if(boss.hp <= 0){
         boss.state = 'dying'; boss.enterTimer = 2.5; bossTimerActive = false; document.getElementById('bossTimer').classList.remove('show');
         for(let i=0; i<5; i++){ setTimeout(()=>{ spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0)); spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true); }, i*300); }
-        floatingTexts.push({ x:boss.x, y:boss.y-100, text:'BOSS 擊殺！限時獎勵 ×1.5', life:120, maxLife:120, color:'#ffee00', size:30 });
+        spawnFloatingText(boss.x, boss.y-100, 'BOSS 擊殺！限時獎勵 ×1.5', 120, '#ffee00', 30);
         
         // ⬇️ 加上這行，讓 Boss 噴出超級大量的金幣雨！
         spawnFlyingCoins(boss.x, boss.y, 100); 
@@ -1129,7 +1129,7 @@ function damageFish(f, hitX, hitY) {
     const exScale = f.size / 120;
     spawnExplosion(f.x, f.y, Math.max(0.6, Math.min(2.5, exScale * 2.5)));
     spawnFlyingCoins(f.x, f.y, f.mult); // 噴出立體金幣
-    floatingTexts.push({ x:f.x, y:f.y-25, text:`+${won}`, life:90, maxLife:90, color: f.mult>=30?'#ffee00': f.mult>=10?'#ff9900':'#ffffff', size: f.mult>=30?32: f.mult>=10?24:18 });
+    spawnFloatingText(f.x, f.y-25, `+${won}`, 90, f.mult>=30?'#ffee00': f.mult>=10?'#ff9900':'#ffffff', f.mult>=30?32: f.mult>=10?24:18);
   }
 }
 
@@ -1172,7 +1172,10 @@ function checkCollisions(){
 
         if (b.type === 3) {
           // ★ 第三階：觸發範圍 180px 的電漿大爆炸！
-          plasmaExplosions.push({x: b.x, y: b.y, life: 30, maxLife: 30});
+          // ★ 回收池：複用舊物件
+          let pe = plasmaPool.length > 0 ? plasmaPool.pop() : {};
+          pe.x = b.x; pe.y = b.y; pe.life = 30; pe.maxLife = 30;
+          plasmaExplosions.push(pe);
           for (let f2 of fishes) {
             if (f2.dead) continue;
             if (dist(b.x, b.y, f2.x, f2.y) <= 180) damageFish(f2, f2.x, f2.y);
@@ -1250,7 +1253,11 @@ function updateDrawFlyingCoins(dt) {
 
 function spawnExplosion(x, y, scale=1.0){
   if(!explosionImg || !explosionImg.complete) return;
-  explosions.push({ x, y, scale, frame: 0, frameTimer: 0, frameDuration: 1 / ASSETS.explosion.fps, done: false });
+  // ★ 回收池：優先複用舊物件，避免每次爆炸都 new 新物件讓 GC 壓力暴增
+  let e = explosionPool.length > 0 ? explosionPool.pop() : {};
+  e.x = x; e.y = y; e.scale = scale; e.frame = 0; e.frameTimer = 0;
+  e.frameDuration = 1 / ASSETS.explosion.fps; e.done = false;
+  explosions.push(e);
 }
 
 // ⚡ 繪製爆炸特效 (修正：將 screen 混合模式移到迴圈外，兼顧效能與發光效果)
@@ -1262,7 +1269,8 @@ function updateDrawExplosions(dt){
   ctx.globalCompositeOperation = 'screen'; // ★ 恢復黑底去背的發光效果！
 
   for(let i=explosions.length-1; i>=0; i--){
-    const e = explosions[i]; if(e.done){ explosions.splice(i,1); continue; }
+    const e = explosions[i]; 
+    if(e.done){ explosionPool.push(explosions.splice(i,1)[0]); continue; }
     e.frameTimer += dt; 
     if(e.frameTimer >= e.frameDuration){ 
       e.frameTimer -= e.frameDuration; e.frame++; 
@@ -1290,12 +1298,19 @@ function updateDrawPlasma() {
     ctx.drawImage(plasmaImg, p.x - size/2, p.y - size/2, size, size);
     
     p.life--;
-    if (p.life <= 0) plasmaExplosions.splice(i, 1);
+    if (p.life <= 0) plasmaPool.push(plasmaExplosions.splice(i, 1)[0]);
   }
   ctx.restore();
 }
 
 
+
+// ★ 回收池版浮動文字：統一入口，避免每次 push 都 new 一個 {}
+function spawnFloatingText(x, y, text, life, color, size){
+  let t = floatingTextPool.length > 0 ? floatingTextPool.pop() : {};
+  t.x = x; t.y = y; t.text = text; t.life = life; t.maxLife = life; t.color = color; t.size = size;
+  floatingTexts.push(t);
+}
 
 function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
   // ★ iOS 效能優化：限制粒子總數，防止大量爆炸時記憶體暴漲
@@ -1499,7 +1514,7 @@ function updateDrawFloatingTexts(){
     ctx.fillText(t.text, t.x, t.y); 
     t.y -= 1.6; 
     t.life--; 
-    if(t.life <= 0) floatingTexts.splice(i, 1);
+    if(t.life <= 0) floatingTextPool.push(floatingTexts.splice(i, 1)[0]);
   }
   ctx.globalAlpha = 1.0; 
 }
@@ -1546,7 +1561,7 @@ let spawnTimer = 0;
 let lastRafTime = 0; // ★ iOS 60fps 限頻用
 function gameLoop(timestamp){
   // ★ iOS 效能優化：強制限制在 60fps，避免 ProMotion 120Hz 螢幕白白耗電跑兩倍運算
-  if(isIOS && timestamp - lastRafTime < 11.1){
+  if(isIOS && timestamp - lastRafTime < 16.6){
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1593,8 +1608,14 @@ function gameLoop(timestamp){
   }
 
   // ── 2. 渲染階段：排序並畫出所有存活的魚 ──
-  // ★ 將陣列從小到大排序 (ID 1 排前面, ID 9 排後面)
-  fishes.sort((a, b) => (a.id || 0) - (b.id || 0));
+  // ★ 改用 insertion sort：魚的順序每幀變動極小，insertion sort 對近乎有序陣列是 O(n)
+  //    取代原本 Array.sort() 每幀建立臨時物件造成的 GC 壓力
+  for(let i=1; i<fishes.length; i++){
+    const key = fishes[i]; const kid = key.id || 0;
+    let j = i - 1;
+    while(j >= 0 && (fishes[j].id || 0) > kid){ fishes[j+1] = fishes[j]; j--; }
+    fishes[j+1] = key;
+  }
   
   // ★ 用正向迴圈畫，確保 ID 越大的越晚畫 (蓋在最上面)
   for(let i=0; i<fishes.length; i++){
