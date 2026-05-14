@@ -110,14 +110,51 @@
     cursor:none; /* 用自訂準心取代 */
   }
 
+  /* ── 🔥 Combo 系統樣式 (白邊升級版) ── */
+  #comboDisplay {
+    position: absolute;
+    top: 8%; right: 5%;
+    z-index: 15;
+    font-family: 'Arial', sans-serif;
+    font-weight: 900;
+    font-style: italic;
+    font-size: 55px;
+    -webkit-text-stroke: 2px #ffffff; 
+    color: #ff8800;
+    text-shadow: 0 0 15px #ff3300, 5px 5px 5px rgba(0,0,0,0.8);
+    pointer-events: none;
+    
+    /* ★ 核心修正：將縮放與旋轉的「錨點」釘在右邊！這樣字數增加放大時，只會往左邊延伸，不會出鏡！ */
+    transform-origin: right center;
+    
+    opacity: 0;
+    /* ★ 起始尺寸再縮小 50% (從原本的 0.5 變成 0.25) */
+    transform: scale(0.25) rotate(-10deg);
+    transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s ease-out;
+  }
+  #comboDisplay.active {
+    opacity: 1;
+  }
+
   /* ── 新版底部 UI 樣式 ── */
   #newBottomBar {
-    position: absolute; bottom: 0; left: 0; width: 1280px; height: 95px; z-index: 10;
+    position: absolute; left: 0; width: 1280px; height: 95px; z-index: 10;
+    transform: scale(0.65);             
+    transform-origin: center bottom;   
     
-    /* 👇 加入這兩行魔法程式碼 👇 */
-    transform: scale(0.65);             /* 0.5 就是縮小到 50% 的意思 */
-    transform-origin: center bottom;   /* 告訴系統：縮放時請黏緊「底部正中央」 */
+    /* ★ UI 進場動畫 (初始隱藏狀態：往下沉 150px) */
+    bottom: -150px; 
+    opacity: 0;
+    /* ★ 物理彈性特效 (cubic-bezier 創造回彈感) */
+    transition: bottom 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.5s ease-out;
   }
+
+  /* ★ UI 進場動畫 (完成狀態：歸位) */
+  #newBottomBar.slide-in {
+    bottom: 0;
+    opacity: 1;
+  }
+    
   .ui-bg { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
   .hitbox { position: absolute; cursor: pointer; z-index: 10; }
   
@@ -456,7 +493,7 @@
     </div>
     <!-- Boss 入場標題 -->
     <div id="bossTitle">⚠ BOSS 出現 ⚠</div>
-
+    <div id="comboDisplay">Combo x2</div>
 
     <!-- ★ 新版底部混合 UI -->
     <div id="newBottomBar">
@@ -576,11 +613,25 @@ function toLogical(clientX, clientY){
 // ════════════════════════════════════════════
 //  遊戲狀態 & 魚種基本設定
 // ════════════════════════════════════════════
-let coins          = 15000;
+let coins          = 300000;
 let sessionScore   = 0;
+
+// ★ Combo 系統變數
+let comboCount     = 0;
+let comboTimer     = 0; 
+
+// ★ 關卡與 Boss 漸進獎勵變數
+let bossLevel       = 0;
+const STAGE_GOALS   = [10000, 20000, 40000, 80000, 160000]; // 各關卡 Boss 觸發門檻
+const STAGE_REWARDS = [3000, 6000, 12000, 24000, 48000];   // 各關卡 Boss 擊殺獎金
+const STAGE_BOSS_HP = [750, 1500, 3000, 6000, 12000];
+const STAGE_BOSS_TIME = [15, 20, 25, 30, 40];
+
 let betAmount      = 10;
 let autoFire       = false;
 let autoFireTimer  = 0;
+
+// 👇 ★ 就是下面這 5 行！請務必把它們補回去 👇
 let mouseDown      = false;
 let mouseFireTimer = 0;
 let mouseX = W/2, mouseY = H/2;
@@ -769,29 +820,78 @@ function settleNormalScore(){
 }
 function settleBossResult(killedInTime){
   const dmgPct = 1 - (boss.hp / boss.maxHp);
-  const baseScore = Math.round(BOSS_MAX_SCORE * dmgPct);
-  const bonus = killedInTime ? Math.round(baseScore * 0.5) : 0;
-  const total = baseScore + bonus;
-  const earnedCoins = Math.floor(total * SCORE_TO_COIN);
-  coins += earnedCoins; updateHUD();
+  let rewardCoins = 0;
+  let resultText = "";
+  
+  if (killedInTime) {
+    rewardCoins = STAGE_REWARDS[bossLevel];
+    if (!rewardCoins) rewardCoins = 48000 * Math.pow(2, bossLevel - 4);
+    
+    // 👇 ★ 修改解鎖提示文字：擊敗第 3 關 (索引 2) 才跳出解鎖 500 倍 👇
+    if (bossLevel === 0) {
+      resultText = "過關大獎！<br><span style='color:#00e5ff; font-size:16px; text-shadow: 0 0 8px #00e5ff;'>✨ 解鎖雙管重砲 (最高75倍) ✨</span>";
+    } else if (bossLevel === 2) { // 擊敗第三關 Boss (bossLevel 為 2)
+      resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>🔥 解鎖電漿巨砲 (最高500倍) 🔥</span>";
+    } else {
+      resultText = "過關大獎！";
+    }
+    
+  } else {
+    const currentGoal = STAGE_GOALS[bossLevel] || 320000;
+    rewardCoins = Math.floor(currentGoal * 0.1 * dmgPct);
+    resultText = "挑戰失敗 (安慰獎)";
+  }
+
+  coins += rewardCoins; 
+  updateHUD();
+  
   document.getElementById('rDmgPct').textContent = Math.round(dmgPct*100) + '%';
-  document.getElementById('rBaseScore').textContent = baseScore.toLocaleString();
-  document.getElementById('rBonusRow').style.display = killedInTime ? 'flex' : 'none';
-  document.getElementById('rBonus').textContent = '+' + bonus.toLocaleString();
-  document.getElementById('rCoins').textContent = total.toLocaleString() + ' 分';
-  document.getElementById('rTotal').textContent = earnedCoins.toLocaleString();
+  // ★ 注意這裡：原本是 textContent，必須改成 innerHTML 才能順利顯示我們剛剛加的 <br> 換行與顏色標籤！
+  document.getElementById('rBaseScore').innerHTML = resultText;
+  
+  document.getElementById('rTotal').textContent = rewardCoins.toLocaleString();
   document.getElementById('bossResult').classList.add('show');
+
+  if (killedInTime) bossLevel++; 
 }
+
 function triggerBoss(){
   if(boss.state !== 'idle') return;
   settleNormalScore();
-  // ★ 加上這行：播放 Boss 警報聲 (音量 100%)
   AudioEngine.play(SOUNDS.boss, 1.0);
-  boss.state = 'entering'; boss.hp = boss.maxHp; boss.x = -BOSS_DW / 2; boss.y = H / 2; boss.enterTimer = BOSS_ENTER_DURATION; bossTimeLeft = BOSS_TIME_LIMIT; bossTimerActive = false; fishes = [];
-  document.getElementById('bossTitle').classList.add('show'); showBossHpBar(); updateBossHpBar();
+
+  // ★ 無限翻倍邏輯：如果超過前 5 關，血量會以 12000 為基礎每關翻一倍
+  let currentMaxHp = STAGE_BOSS_HP[bossLevel];
+  if (!currentMaxHp) currentMaxHp = 12000 * Math.pow(2, bossLevel - 4); 
+  
+  // ★ 動態讀取停留時間
+  let currentLimit = STAGE_BOSS_TIME[bossLevel] || 45;
+
+  boss.state = 'entering'; 
+  boss.maxHp = currentMaxHp; 
+  boss.hp = currentMaxHp;    
+  boss.x = -BOSS_DW / 2; boss.y = H / 2; 
+  boss.enterTimer = BOSS_ENTER_DURATION; 
+  bossTimeLeft = currentLimit; 
+  bossTimerActive = false; 
+  fishes = [];
+  
+  // 更新 UI 等級標題
+  const hpLabel = document.getElementById('bossHpLabel');
+  if (hpLabel) hpLabel.textContent = `⚠ BOSS 鯊魚王 Lv.${bossLevel + 1} ⚠`;
+
+  document.getElementById('bossTitle').classList.add('show'); 
+  showBossHpBar(); 
+  updateBossHpBar();
   bossFrame = 0; bossFrameTimer = 0;
-  setTimeout(()=>{ document.getElementById('bossTitle').classList.remove('show'); boss.state = 'active'; bossTimerActive = true; document.getElementById('bossTimer').classList.add('show'); }, BOSS_ENTER_DURATION * 1000);
+  setTimeout(()=>{ 
+    document.getElementById('bossTitle').classList.remove('show'); 
+    boss.state = 'active'; 
+    bossTimerActive = true; 
+    document.getElementById('bossTimer').classList.add('show'); 
+  }, BOSS_ENTER_DURATION * 1000);
 }
+
 function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
 function drawBoss(dt){
   if(boss.state === 'idle' || boss.state === 'dead' || !ASSETS.boss.img) return;
@@ -853,6 +953,11 @@ function checkBossCollision(){
     if(b.life <= 0) continue;
     if((Math.pow(b.x - boss.x, 2) / Math.pow(ASSETS.boss.size * 1.8, 2)) + (Math.pow(b.y - boss.y, 2) / Math.pow(ASSETS.boss.size * 1.0, 2)) < 1){
       b.life = 0; boss.hp = Math.max(0, boss.hp - betAmount); boss.hitFlash = 4; updateBossHpBar();
+      
+      // ★ 核心優化：打 Boss 也能累積 Combo，且倒數計時會重置！
+      comboCount++;
+      comboTimer = 2.5; 
+      updateComboUI();
       spawnParticles(b.x, b.y, '#ff4400', 10, 2, 7, 40);
       spawnFloatingText(b.x, b.y - 20, `-${betAmount}`, 35, '#ff6622', 14);
       if(boss.hp <= 0){
@@ -1115,6 +1220,50 @@ function createBullet(x, y, angle, speed, type) {
   bullets.push(b);
 }
 
+// 🔥 更新 Combo 介面 (暗紅加熱轉白熱化，初始更小)
+function updateComboUI() {
+  const el = document.getElementById('comboDisplay');
+  if (!el || comboCount < 2) return; 
+
+  el.textContent = `Combo x${comboCount}`;
+  el.classList.add('active');
+
+  // ★ 1. 調整放大公式：基礎值從 1.0 降到 0.5 (初始縮小 50%)，成長率微調，最大值 2.2 不變
+  let scale = Math.min(0.5 + (comboCount * 0.08), 2.2); 
+  
+  // ★ 2. 初始階段 (2~9連擊)：冷卻狀態的暗紅色 + 深紅光暈 (配上原本的白邊非常顯眼)
+  let txtColor = '#990000';  
+  let glowColor = '#550000'; 
+
+  // ★ 3. 終極白熱化 (30連擊以上)：極度高溫的純白帶強烈金光
+  if (comboCount >= 30) { 
+    txtColor = '#ffffff'; 
+    glowColor = '#ffcc00'; 
+  }
+  // 高溫階段 (20~29連擊)：亮黃色 + 橘色光暈
+  else if (comboCount >= 20) { 
+    txtColor = '#ffdd00'; 
+    glowColor = '#ff6600'; 
+  }
+  // 升溫階段 (10~19連擊)：橘紅色 + 鮮紅光暈
+  else if (comboCount >= 10) { 
+    txtColor = '#ff5500'; 
+    glowColor = '#cc0000'; 
+  }
+
+  el.style.color = txtColor;
+  el.style.textShadow = `0 0 20px ${glowColor}, 0 0 40px ${glowColor}, 5px 5px 6px rgba(0,0,0,0.8)`;
+
+  // 先瞬間暴增放大 (製造心跳般的打擊感)
+  el.style.transform = `scale(${scale * 1.3}) rotate(-10deg)`;
+  
+  // 0.05 秒後回彈到目標大小
+  clearTimeout(el.popTimer);
+  el.popTimer = setTimeout(() => {
+    if(comboTimer > 0) el.style.transform = `scale(${scale}) rotate(-10deg)`;
+  }, 50);
+}
+
 // 輔助函式：用來處理魚扣血、死亡噴金幣的邏輯
 function damageFish(f, hitX, hitY) {
   f.hitFlash = 3; 
@@ -1125,11 +1274,41 @@ function damageFish(f, hitX, hitY) {
   else { f.hp = Math.max(0.1, f.hp - (f.maxHp / (f.mult * 1.5))); }
 
   if(f.hp <= 0){
-    f.dead = true; const won = betAmount * f.mult; sessionScore += won; 
+    f.dead = true; 
+    
+    // ★ 1. 必須先增加 Combo 數，才能拿最新的 Combo 去算獎勵！
+    comboCount++;
+    comboTimer = 2.5; 
+    updateComboUI(); 
+    
+    // ★ 2. 實裝 Combo 加成演算法！
+    // 規則：每一個 Combo 增加 2% 獎勵，最高加成 100% (也就是 2.0 倍，需要 50 連擊)
+    let comboBonusRate = 1.0;
+    if (comboCount >= 2) {
+      comboBonusRate = Math.min(2.0, 1 + (comboCount * 0.02));
+    }
+
+    // ★ 3. 計算最終獲得分數 (基本分 x 連擊加成)
+    const baseWon = betAmount * f.mult; 
+    const finalWon = Math.round(baseWon * comboBonusRate); // 四捨五入取整數
+    sessionScore += finalWon; 
+    
     const exScale = f.size / 120;
     spawnExplosion(f.x, f.y, Math.max(0.6, Math.min(2.5, exScale * 2.5)));
     spawnFlyingCoins(f.x, f.y, f.mult); // 噴出立體金幣
-    spawnFloatingText(f.x, f.y-25, `+${won}`, 90, f.mult>=30?'#ffee00': f.mult>=10?'#ff9900':'#ffffff', f.mult>=30?32: f.mult>=10?24:18);
+
+    // ★ 4. 讓跳出的數字更有感！加上火力驚嘆號
+    let floatText = `+${finalWon}`;
+    if (comboCount >= 20) floatText = `+${finalWon}🔥`;
+    else if (comboCount >= 2) floatText = `+${finalWon}!`;
+
+    floatingTexts.push({ 
+      x: f.x, y: f.y - 25, 
+      text: floatText, 
+      life: 90, maxLife: 90, 
+      color: f.mult >= 30 ? '#ffee00' : f.mult >= 10 ? '#ff9900' : '#ffffff', 
+      size: f.mult >= 30 ? 32 : f.mult >= 10 ? 24 : 18 
+    });
   }
 }
 
@@ -1532,6 +1711,19 @@ function updateHUD() {
     document.getElementById('scoreDisplay').textContent = sessionScore.toLocaleString(); 
     lastScore = sessionScore; 
   }
+
+  // ✅ 動態觸發邏輯 (無限翻倍版)
+  let currentGoal = STAGE_GOALS[bossLevel];
+  if (!currentGoal) currentGoal = 160000 * Math.pow(2, bossLevel - 4);
+
+  if(boss.state === 'idle' && sessionScore >= currentGoal) {
+    triggerBoss();
+  }
+
+  const goalEl = document.querySelector('.score-max');
+  if(goalEl) goalEl.textContent = `/${currentGoal}`;
+  // 👆 ★ 插入結束 👆
+
   if (betAmount !== lastBet) {
     document.getElementById('betDisplay').textContent = betAmount; 
     const barrelEl = document.getElementById('cannonBarrel');
@@ -1569,6 +1761,20 @@ function gameLoop(timestamp){
 
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05); lastTime = timestamp;
   drawBackground(); updateDrawBubbles(dt); drawCrosshair();
+
+  // ★ 更新 Combo 計時器 (時間到就斷掉 Combo 並隱藏 UI)
+  if (comboTimer > 0 && boss.state !== 'entering') {
+    comboTimer -= dt;
+    if (comboTimer <= 0) {
+      comboCount = 0;
+      const el = document.getElementById('comboDisplay');
+      if (el) {
+        el.classList.remove('active');
+        // ★ 這裡的隱藏尺寸同步改為 0.25
+        el.style.transform = 'scale(0.25) rotate(-10deg)'; 
+      }
+    }
+  }
 
   spawnTimer++;
   if(spawnTimer >= 75){ spawnTimer = 0; const n = Math.floor(rand(1,4)); for(let i=0;i<n;i++) spawnFish(); }
@@ -1641,7 +1847,12 @@ function gameLoop(timestamp){
     if(bossTimeLeft <= 0){ bossTimerActive = false; boss.state = 'dying'; boss.enterTimer = 2.5; document.getElementById('bossTimer').classList.remove('show'); setTimeout(()=> settleBossResult(false), 500); }
   }
 
-  if(boss.state === 'idle' && sessionScore >= NORMAL_SCORE_CAP) triggerBoss();
+  // ✅ 動態觸發邏輯
+  const currentGoal = STAGE_GOALS[bossLevel] || 320000;
+
+  if(boss.state === 'idle' && sessionScore >= currentGoal) {
+    triggerBoss();
+  }
   if(boss.state === 'active' || boss.state === 'entering') spawnTimer = 0;
 
   // ⚡ 尋找自動射擊的目標 (iPhone 極速雷達版：平方距離取代開根號)
@@ -1726,9 +1937,32 @@ canvas.addEventListener('touchmove', e=>{ e.preventDefault(); const t = e.change
 canvas.addEventListener('touchend', e=>{ e.preventDefault(); mouseDown = false; }, { passive:false });
 
 document.getElementById('bossResultClose').addEventListener('click', ()=>{ document.getElementById('bossResult').classList.remove('show'); if(boss.state === 'dead'){ boss.state = 'idle'; boss.hp = boss.maxHp; } });
-const BET_VALS = [1,5,10,20,50,100];
+const BET_VALS = [1, 5, 10, 15, 20, 50, 75, 100, 200, 500];
 document.getElementById('betDown').addEventListener('click',()=>{ const i=BET_VALS.indexOf(betAmount); if(i>0){ betAmount=BET_VALS[i-1]; updateHUD(); } });
-document.getElementById('betUp').addEventListener('click',()=>{ const i=BET_VALS.indexOf(betAmount); if(i<BET_VALS.length-1){ betAmount=BET_VALS[i+1]; updateHUD(); } });
+
+// 👇 ★ 修改火力解鎖門檻：第二與第三關都卡在 75 倍 👇
+document.getElementById('betUp').addEventListener('click',()=>{ 
+  // ★ 定義當前關卡的火力上限
+  let maxAllowed = 15;                         // 第一關 (bossLevel 0)：最高 15 倍
+  if (bossLevel === 1 || bossLevel === 2) {    // 第二關與第三關：最高 75 倍
+    maxAllowed = 75; 
+  }
+  if (bossLevel >= 3) {                        // 擊敗第三關 Boss (bossLevel 變成 3) 後：全開 500 倍
+    maxAllowed = 500; 
+  }
+
+  const i = BET_VALS.indexOf(betAmount); 
+  if(i < BET_VALS.length - 1){ 
+    const nextBet = BET_VALS[i+1];
+    if (nextBet <= maxAllowed) {
+      betAmount = nextBet; 
+      updateHUD(); 
+    } else {
+      spawnFloatingText(W/2, H - 130, '⚠ 擊敗當前 Boss 以解鎖更高火力！', 70, '#ff4444', 26);
+    }
+  } 
+});
+
 document.getElementById('autoBtn').addEventListener('click',()=>{ autoFire=!autoFire; const btn=document.getElementById('autoBtn'); btn.classList.toggle('active',autoFire); document.getElementById('autoText').textContent = autoFire ? '■ 停止自動' : '自動射擊'; });
 
 // ════════════════════════════════════════════
@@ -1809,11 +2043,19 @@ startBtn.addEventListener('click', () => {
   ls.style.opacity = '0';
   setTimeout(() => ls.style.display = 'none', 500);
 
-  // 2. 初始化介面與首批魚群
-  updateHUD();
-  for(let i=0; i<10; i++) setTimeout(spawnFish, i*200);
+  // ★ 2. UI 變形金剛彈性滑入 (稍微延遲 0.1 秒，讓背景先亮出來)
+  setTimeout(() => {
+    const bar = document.getElementById('newBottomBar');
+    if(bar) bar.classList.add('slide-in');
+  }, 100);
 
-  // 3. 啟動遊戲迴圈 (這時音樂也會透過 mousedown 事件同步被合法解鎖播放！)
+  // ★ 3. 初始化介面，並讓魚群在 UI 就位後再「陸續進場」，營造大作開局感
+  updateHUD();
+  setTimeout(() => {
+    for(let i=0; i<10; i++) setTimeout(spawnFish, i*150);
+  }, 500);
+
+  // 4. 啟動遊戲迴圈 (音樂同步解鎖)
   lastTime = performance.now();
   requestAnimationFrame(gameLoop);
 });
