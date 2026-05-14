@@ -509,11 +509,18 @@
 'use strict';
 
 // ════════════════════════════════════════════
+//  ★ iOS 效能偵測
+// ════════════════════════════════════════════
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const MAX_PARTICLES = isIOS ? 150 : 400;
+
+// ════════════════════════════════════════════
 //  ★ 資源配置區 (Manager 匯出時會自動替換這裡)
 // ════════════════════════════════════════════
 const ASSETS = {
   background:      'bg_ocean.jpg',
-  backgroundVideo: 'bg_ocean.webm',
+  backgroundVideo: 'bg_ocean.mp4',
 
   explosion: {
     sheet: 'explosion_sprite.png',
@@ -664,7 +671,7 @@ let bulletPool = [], particlePool = [];
 
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
 
-const bubbles = Array.from({length:55}, ()=>({
+const bubbles = Array.from({length: isIOS ? 30 : 55}, ()=>({
   x: Math.random()*W, y: Math.random()*H, r: Math.random()*5+1,
   speed: Math.random()*0.5+0.1, opacity: Math.random()*0.25+0.04,
   wobble: Math.random()*Math.PI*2, wobbleSpeed: Math.random()*0.018+0.004
@@ -875,7 +882,7 @@ function drawFishGeom(f) {
   const s = f.size, flash = f.hitFlash > 0;
   
   // 正常繪製幾何魚（包含陰影）
-  ctx.shadowColor = flash ? '#ff0000' : f.glowColor; ctx.shadowBlur  = flash ? 20 : 8; ctx.globalAlpha = 1;
+  ctx.shadowColor = flash ? '#ff0000' : f.glowColor; ctx.shadowBlur = isIOS ? 0 : (flash ? 20 : 8); ctx.globalAlpha = 1;
   ctx.fillStyle = f.color; ctx.beginPath(); ctx.ellipse(0, 0, s, s*0.52, 0, 0, Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.moveTo(-s*0.72, 0); ctx.lineTo(-s*1.25, -s*0.48); ctx.lineTo(-s*1.25, s*0.48); ctx.closePath(); ctx.fill();
   ctx.beginPath(); ctx.moveTo(-s*0.1, -s*0.52); ctx.quadraticCurveTo(s*0.2, -s*0.9, s*0.4, -s*0.52); ctx.closePath(); ctx.fill();
@@ -955,6 +962,10 @@ function drawFish(f) {
 }
 
 function spawnFish(){
+  // ★ 魚數量上限（設為 999 等於幾乎不限制）
+  const MAX_FISH = isIOS ? 999 : 999;
+  if(fishes.length >= MAX_FISH) return;
+
   // ★ 動態計算總權重 (優先使用 ASSETS 裡的 freq，沒有才用原本的 t.freq)
   let totalW = 0;
   FISH_TYPES.forEach(t => {
@@ -1126,8 +1137,11 @@ function damageFish(f, hitX, hitY) {
 function checkCollisions(){
   for(let b of bullets){
     if(b.life<=0) continue;
+    const bx = b.x, by = b.y;
     for(let f of fishes){
       if(f.dead) continue;
+      // ★ iOS 效能優化：距離預篩，快速排除明顯不可能碰撞的魚，省掉複雜的旋轉碰撞計算
+      if(Math.abs(bx - f.x) > 250 || Math.abs(by - f.y) > 250) continue;
       let isHit = false;
 
       if(f.hitType === 'rect') {
@@ -1175,8 +1189,9 @@ function checkCollisions(){
 
 // 💰 生成噴發的金幣 (Canvas 極速版)
 function spawnFlyingCoins(x, y, mult) {
-  // 最高允許噴出 60 枚金幣 (打死大鯊魚時絕對超級壯觀)
-  const count = Math.min(60, Math.max(3, Math.floor(mult / 1.5))); 
+  // ★ iOS 效能優化：限制最多噴出金幣數，避免 Boss 死亡時瞬間壓垮手機
+  const maxCoins = isIOS ? 20 : 60;
+  const count = Math.min(maxCoins, Math.max(3, Math.floor(mult / 1.5))); 
   for (let i = 0; i < count; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = rand(4, 12);
@@ -1283,7 +1298,10 @@ function updateDrawPlasma() {
 
 
 function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
-  for(let i=0;i<count;i++){ 
+  // ★ iOS 效能優化：限制粒子總數，防止大量爆炸時記憶體暴漲
+  const allowed = Math.min(count, MAX_PARTICLES - particles.length);
+  if(allowed <= 0) return;
+  for(let i=0;i<allowed;i++){ 
     const a = Math.random()*Math.PI*2; const s = rand(minSpd, maxSpd); 
     let p = particlePool.length > 0 ? particlePool.pop() : {};
     p.x = x; p.y = y; p.vx = Math.cos(a)*s; p.vy = Math.sin(a)*s - (isCoin?rand(0,4):0);
@@ -1294,15 +1312,14 @@ function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
 
 function drawBackground(){
   // ★ 設定背景放大比例 (1.15 代表放大 15%)
-  // 如果上下還有黑邊，可以把數字調大 (例如 1.25)；如果覺得圖案被切掉太多，可以調小 (例如 1.05)
   const zoom = 1.15; 
   const bgW = W * zoom;
   const bgH = H * zoom;
-  // 計算置中偏移量，讓背景從正中心往外放大
   const offsetX = (W - bgW) / 2;
   const offsetY = (H - bgH) / 2;
 
-  if(bgVideo && bgVideo.readyState >= 2){ 
+  // ★ iOS 效能優化：跳過 webm 影片，直接用靜態圖，省下影片解碼的 GPU 開銷
+  if(!isIOS && bgVideo && bgVideo.readyState >= 2){ 
     ctx.drawImage(bgVideo, offsetX, offsetY, bgW, bgH); 
     return; 
   }
@@ -1320,12 +1337,18 @@ function hexToRgba(hex, alpha){ const r=parseInt(hex.slice(1,3),16), g=parseInt(
 
 function updateDrawBubbles(dt){
   ctx.save();
+  // ★ iOS 效能優化：batch 畫所有氣泡，只呼叫一次 stroke()，大幅減少 GPU flush
+  ctx.beginPath();
   for(const b of bubbles){
     b.y -= b.speed * dt * 60; b.wobble += b.wobbleSpeed * dt * 60; b.x += Math.sin(b.wobble) * 0.35;
     if(b.y < -12){ b.y = H+12; b.x = Math.random()*W; }
-    ctx.globalAlpha = b.opacity; ctx.strokeStyle = '#88ccff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke();
-    ctx.globalAlpha = b.opacity*0.25; ctx.fillStyle = '#aaddff'; ctx.fill();
+    ctx.moveTo(b.x + b.r, b.y);
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
   }
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = '#88ccff';
+  ctx.lineWidth = 1;
+  ctx.stroke(); // 一次畫完所有氣泡
   ctx.restore();
 }
 
@@ -1520,7 +1543,15 @@ function updateHUD() {
 //  遊戲主循環
 // ════════════════════════════════════════════
 let spawnTimer = 0;
+let lastRafTime = 0; // ★ iOS 60fps 限頻用
 function gameLoop(timestamp){
+  // ★ iOS 效能優化：強制限制在 60fps，避免 ProMotion 120Hz 螢幕白白耗電跑兩倍運算
+  if(isIOS && timestamp - lastRafTime < 16.6){
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+  lastRafTime = timestamp;
+
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05); lastTime = timestamp;
   drawBackground(); updateDrawBubbles(dt); drawCrosshair();
 
