@@ -1093,57 +1093,15 @@ function fireBullet(tx, ty) {
      }
    }
 
-// 🔫 抽取出來的子彈生成函式
+// 抽取出來的子彈生成函式
 function createBullet(x, y, angle, speed, type) {
-  let b = bulletPool.length > 0 ? bulletPool.pop() : {}; 
+  let b = bulletPool.length > 0 ? bulletPool.pop() : {}; // ★ 不再需要 trail 陣列！
   b.x = x; b.y = y;
   b.vx = Math.cos(angle) * speed; 
   b.vy = Math.sin(angle) * speed;
   b.life = 130;
   b.type = type; 
-  b.speed = speed; // ★ 預先存好速度，絕對不要在每幀重算！
   bullets.push(b);
-}
-
-// 🔫 繪製子彈 (極速 0 數學運算版)
-function drawBullet(b) {
-  ctx.save();
-  
-  // 直接讀取預存的 b.speed，省下每秒幾千次的 Math.hypot！
-  const trailLen = Math.min((130 - b.life) * b.speed, 12 * b.speed); 
-
-  if (trailLen > 0) {
-    let trailColor = 'rgba(50, 150, 255, 0.3)';
-    if (b.type === 2) trailColor = 'rgba(80, 220, 255, 0.3)';
-    if (b.type === 3) trailColor = 'rgba(0, 255, 255, 0.4)';
-    ctx.strokeStyle = trailColor;
-    ctx.lineWidth = b.type === 3 ? 6 : 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(b.x, b.y);
-    // ★ 利用已經算好的 vx/vy 比例來畫線，完全拔除 Math.atan2 和 Math.sin/cos！
-    const dx = (b.vx / b.speed) * trailLen;
-    const dy = (b.vy / b.speed) * trailLen;
-    ctx.lineTo(b.x - dx, b.y - dy);
-    ctx.stroke();
-  }
-  
-  ctx.beginPath();
-  if (b.type === 1 || !b.type) {
-    ctx.shadowBlur = 0; 
-    ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
-  } else if (b.type === 2) {
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
-  } else if (b.type === 3) {
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#00bbff'; ctx.arc(b.x, b.y, 11, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#e0ffff'; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
-  }
-  ctx.fill();
-  ctx.restore();
 }
 
 // 輔助函式：用來處理魚扣血、死亡噴金幣的邏輯
@@ -1164,7 +1122,7 @@ function damageFish(f, hitX, hitY) {
   }
 }
 
-// 💥 全新的碰撞偵測 (極速平方距離運算版：拯救 CPU)
+// 全新的碰撞偵測 (包含 100 倍砲的範圍爆炸)
 function checkCollisions(){
   for(let b of bullets){
     if(b.life<=0) continue;
@@ -1180,38 +1138,36 @@ function checkCollisions(){
         const localX = dx * cosA - dy * sinA; const localY = dx * sinA + dy * cosA;
         if(Math.abs(localX) <= f.hitW/2 && Math.abs(localY) <= f.hitH/2) isHit = true;
       } else {
-        // ★ 拔掉極度耗能的 dist (Math.hypot)！直接算 X 與 Y 的平方和
-        const dx = b.x - f.x;
-        const dy = b.y - f.y;
-        const hitDist = f.size * 0.8;
-        if(dx * dx + dy * dy < hitDist * hitDist) isHit = true; 
+        if(dist(b.x,b.y,f.x,f.y) < f.size * 0.8) isHit = true;
       }
 
       if(isHit){
         b.life = 0; 
         
-        let pColor = '#44eeff'; 
+        // ★ 改為：根據子彈等級噴發大量科幻發光粒子
+        let pColor = '#44eeff'; // 一階：青藍色
         let pCount = 15;
         let pSpd = 6;
         if(b.type === 2) { pColor = '#00e5ff'; pCount = 25; pSpd = 8; }
-        if(b.type === 3) { pColor = '#bb88ff'; pCount = 45; pSpd = 14; } 
+        if(b.type === 3) { pColor = '#bb88ff'; pCount = 45; pSpd = 14; } // 三階：巨大電漿紫爆破
         
+        // 1. 產生外圈科幻爆破粒子 (顏色跟隨子彈)
         spawnParticles(b.x, b.y, pColor, pCount, 2, pSpd, 35);
+        // 2. 產生內圈高亮核心 (模擬爆破瞬間的閃光)
         spawnParticles(b.x, b.y, '#ffffff', Math.floor(pCount/2), 1, pSpd*0.5, 20);
 
         if (b.type === 3) {
+          // ★ 第三階：觸發範圍 180px 的電漿大爆炸！
           plasmaExplosions.push({x: b.x, y: b.y, life: 30, maxLife: 30});
           for (let f2 of fishes) {
             if (f2.dead) continue;
-            // ★ 電漿爆炸範圍也改成平方距離判斷 (180 的平方 = 32400)
-            const dx2 = b.x - f2.x;
-            const dy2 = b.y - f2.y;
-            if (dx2 * dx2 + dy2 * dy2 <= 32400) damageFish(f2, f2.x, f2.y);
+            if (dist(b.x, b.y, f2.x, f2.y) <= 180) damageFish(f2, f2.x, f2.y);
           }
         } else {
+          // 一般子彈：單體傷害
           damageFish(f, b.x, b.y);
         }
-        break; 
+        break; // 子彈爆炸後就不繼續穿越了
       }
     }
   }
@@ -1235,7 +1191,7 @@ function spawnFlyingCoins(x, y, mult) {
 // 💰 更新與繪製飛入 UI 的金幣 (修正：無限繞圈與位置偏移 bug)
 function updateDrawFlyingCoins(dt) {
   // ★ 修正為精準的 UI 金幣圖示座標 (依據你最新版的 CSS 座標)
-  const targetX = 300, targetY = 680; 
+  const targetX = 110, targetY = 680; 
   if (!coinImg.complete) return; 
 
   let coinsHitThisFrame = false; 
@@ -1373,6 +1329,45 @@ function updateDrawBubbles(dt){
   ctx.restore();
 }
 
+function drawBullet(b) {
+  ctx.save();
+  
+  // ★ 數學計算尾跡長度，取代消耗記憶體的陣列紀錄
+  const speed = Math.hypot(b.vx, b.vy);
+  const angle = Math.atan2(b.vy, b.vx);
+  const trailLen = Math.min((130 - b.life) * speed, 12 * speed); // 模擬原本 12 幀的長度
+
+  if (trailLen > 0) {
+    let trailColor = 'rgba(50, 150, 255, 0.3)';
+    if (b.type === 2) trailColor = 'rgba(80, 220, 255, 0.3)';
+    if (b.type === 3) trailColor = 'rgba(0, 255, 255, 0.4)';
+    ctx.strokeStyle = trailColor;
+    ctx.lineWidth = b.type === 3 ? 6 : 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(b.x, b.y);
+    ctx.lineTo(b.x - Math.cos(angle) * trailLen, b.y - Math.sin(angle) * trailLen);
+    ctx.stroke();
+  }
+  
+  ctx.beginPath();
+  if (b.type === 1 || !b.type) {
+    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
+    ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
+  } else if (b.type === 2) {
+    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
+    ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
+  } else if (b.type === 3) {
+    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 0;
+    ctx.fillStyle = '#00bbff'; ctx.arc(b.x, b.y, 11, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#e0ffff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
+  }
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawCannon() {
   ctx.save(); 
   ctx.translate(cannon.x, cannon.y);
@@ -1503,19 +1498,9 @@ function updateHUD() {
     document.getElementById('betDisplay').textContent = betAmount; 
     const barrelEl = document.getElementById('cannonBarrel');
     if (barrelEl) {
-      if (betAmount < 20) {
-        barrelEl.src = '砲管A.png'; 
-        barrelEl.style.filter = 'none'; // ★ 關閉發光
-      }
-      else if (betAmount < 100) {
-        barrelEl.src = '砲管B.png'; 
-        barrelEl.style.filter = 'none'; // ★ 關閉發光
-      }
-      else {
-        barrelEl.src = '砲管C.png'; 
-        // ★ 只在換上電漿砲的「那一瞬間」才開啟發光濾鏡，拯救手機效能！
-        barrelEl.style.filter = 'drop-shadow(0 0 15px #00e5ff) brightness(1.2)';
-      }
+      if (betAmount < 20) barrelEl.src = '砲管A.png'; 
+      else if (betAmount < 100) barrelEl.src = '砲管B.png'; 
+      else barrelEl.src = '砲管C.png'; 
     }
     lastBet = betAmount;
   }
@@ -1636,8 +1621,14 @@ function gameLoop(timestamp){
   recoilAmount *= 0.8; 
 
   if(barrelEl) {
-    // ★ 乾淨俐落！只做 GPU 擅長的 transform，絕對不要把 style.filter 留在這裡！
     barrelEl.style.transform = `rotate(${cssAngle}deg) translateY(${recoilAmount}px)`;
+    
+    // 第三階電漿砲：發出淡淡的水藍色神裝光芒
+    if (betAmount < 100) {
+      barrelEl.style.filter = 'none';
+    } else {
+      barrelEl.style.filter = 'drop-shadow(0 0 15px #00e5ff) brightness(1.2)';
+    }
   }
 
   // 手動開火邏輯
