@@ -224,8 +224,23 @@
   #scoreBox { position: absolute; left: 985px; bottom: 8px; width: 250px; height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; pointer-events: none;}
   .score-label { color: #aaddff; font-size: 20px; margin-bottom: 0px; text-shadow: 0 1px 2px #000;}
   .score-values { display: flex; align-items: baseline; gap: 4px; }
-  #scoreDisplay { color: #ffd700; font-size: 28px; font-weight: bold; text-shadow: 0 2px 4px #000;}
-  .score-max { color: #888; font-size: 28px; }
+  /* ── 修改後的積分數字樣式 ── */
+  #scoreDisplay { 
+    color: #ffd700; 
+    font-size: 25px;          /* ★ 1. 放大至與左邊金幣一致 (原 28px) */
+    font-weight: bold; 
+    font-family: 'Arial', sans-serif; /* ★ 2. 指定字體一致 */
+    text-shadow: 0 2px 5px rgba(0,0,0,0.9); /* ★ 3. 套用深色陰影，增加立體感 */
+    margin-top: 0px; 
+  }
+
+  .score-max { 
+    color: #888; 
+    font-size: 24px;          /* 保持稍微縮小，營造目標感 */
+    font-family: 'Arial', sans-serif; /* ★ 字體同步 */
+    font-weight: bold;
+    text-shadow: 0 2px 5px rgba(0,0,0,0.9);
+  }
 
   /* ── Boss 警告遮罩 ── */
   #bossAlert {
