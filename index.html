@@ -1190,9 +1190,9 @@ function spawnFlyingCoins(x, y, mult) {
 
 // 💰 更新與繪製飛入 UI 的金幣 (修正：無限繞圈與位置偏移 bug)
 function updateDrawFlyingCoins(dt) {
-  // ★ 修正為精準的 UI 金幣圖示座標 (依據你最新版的 CSS 座標)
-  const targetX = 110, targetY = 680; 
-  if (!coinImg.complete) return; 
+  // ★ 將 110 改成 300
+  const targetX = 300, targetY = 680; 
+  if (!coinImg.complete) return;
 
   let coinsHitThisFrame = false; 
 
@@ -1498,9 +1498,19 @@ function updateHUD() {
     document.getElementById('betDisplay').textContent = betAmount; 
     const barrelEl = document.getElementById('cannonBarrel');
     if (barrelEl) {
-      if (betAmount < 20) barrelEl.src = '砲管A.png'; 
-      else if (betAmount < 100) barrelEl.src = '砲管B.png'; 
-      else barrelEl.src = '砲管C.png'; 
+      if (betAmount < 20) {
+        barrelEl.src = '砲管A.png'; 
+        barrelEl.style.filter = 'none'; // ★ 關閉發光
+      }
+      else if (betAmount < 100) {
+        barrelEl.src = '砲管B.png'; 
+        barrelEl.style.filter = 'none'; // ★ 關閉發光
+      }
+      else {
+        barrelEl.src = '砲管C.png'; 
+        // ★ 只在換上電漿砲的「那一瞬間」才開啟發光濾鏡，拯救手機效能！
+        barrelEl.style.filter = 'drop-shadow(0 0 15px #00e5ff) brightness(1.2)';
+      }
     }
     lastBet = betAmount;
   }
@@ -1621,14 +1631,8 @@ function gameLoop(timestamp){
   recoilAmount *= 0.8; 
 
   if(barrelEl) {
+    // ★ 這裡只留下 transform！絕對不能有 style.filter！
     barrelEl.style.transform = `rotate(${cssAngle}deg) translateY(${recoilAmount}px)`;
-    
-    // 第三階電漿砲：發出淡淡的水藍色神裝光芒
-    if (betAmount < 100) {
-      barrelEl.style.filter = 'none';
-    } else {
-      barrelEl.style.filter = 'drop-shadow(0 0 15px #00e5ff) brightness(1.2)';
-    }
   }
 
   // 手動開火邏輯
