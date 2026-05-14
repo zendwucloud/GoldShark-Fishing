@@ -249,13 +249,15 @@
     pointer-events:none;
     border:4px solid transparent;
     border-radius:8px;
+    /* ★ 效能優化：動畫預設暫停，只在 .show 時才啟動，避免背景持續佔用 Compositor thread */
     animation: bossFlash 0.4s ease-in-out infinite alternate;
+    animation-play-state: paused;
   }
   @keyframes bossFlash {
     from { border-color: rgba(255,30,30,0); box-shadow: inset 0 0 0px rgba(255,30,30,0); }
     to   { border-color: rgba(255,30,30,0.9); box-shadow: inset 0 0 60px rgba(255,30,30,0.25); }
   }
-  #bossAlert.show { display:block; }
+  #bossAlert.show { display:block; animation-play-state: running; }
 
   /* ── Boss HP 條 ── */
   #bossHpBar {
@@ -609,6 +611,25 @@ const canvas = document.getElementById('gameCanvas');
 const ctx    = canvas.getContext('2d');
 const W = 1280, H = 720;
 
+// ★ 效能優化：預先快取所有會在 gameLoop 裡用到的 DOM 元素
+//   避免每幀都去做 getElementById（iOS 最大效能殺手之一）
+const _domCache = {
+  barrelEl:     null, // 在 startBtn click 後才賦值
+  coinsDisplay: null,
+  scoreDisplay: null,
+  betDisplay:   null,
+  comboDisplay: null,
+  bossHpFill:   null,
+  bossTimerNum: null,
+  bossTimer:    null,
+  bossAlert:    null,
+  bossHpBar:    null,
+  bossTitle:    null,
+  bossResult:   null,
+  bossHpLabel:  null,
+  scoreMax:     null,
+};
+
 function applyScale(){
   const scaleX = window.innerWidth  / W;
   const scaleY = window.innerHeight / H;
@@ -823,9 +844,9 @@ const BOSS_DW = 800, BOSS_DH = 449, BOSS_ENTER_DURATION = 3.5, BOSS_EXIT_DURATIO
 let bossFrame = 0, bossFrameTimer = 0;
 const boss = { state: 'idle', hp: ASSETS.boss.hp, maxHp: ASSETS.boss.hp, x: -BOSS_DW / 2, y: H / 2, hitFlash: 0, enterTimer: 0, triggerScore: 500 };
 
-function showBossHpBar(){ document.getElementById('bossHpBar').classList.add('show'); document.getElementById('bossAlert').classList.add('show'); }
-function hideBossUI(){ document.getElementById('bossHpBar').classList.remove('show'); document.getElementById('bossAlert').classList.remove('show'); document.getElementById('bossTitle').classList.remove('show'); document.getElementById('bossTimer').classList.remove('show'); }
-function updateBossHpBar(){ document.getElementById('bossHpFill').style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%'; }
+function showBossHpBar(){ if(_domCache.bossHpBar) _domCache.bossHpBar.classList.add('show'); if(_domCache.bossAlert) _domCache.bossAlert.classList.add('show'); }
+function hideBossUI(){ if(_domCache.bossHpBar) _domCache.bossHpBar.classList.remove('show'); if(_domCache.bossAlert) _domCache.bossAlert.classList.remove('show'); if(_domCache.bossTitle) _domCache.bossTitle.classList.remove('show'); if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show'); }
+function updateBossHpBar(){ if(_domCache.bossHpFill) _domCache.bossHpFill.style.width = Math.max(0, boss.hp / boss.maxHp * 100) + '%'; }
 function settleNormalScore(){
   if(sessionScore <= 0) return;
   const earned = Math.floor(sessionScore * SCORE_TO_COIN);
@@ -861,11 +882,9 @@ function settleBossResult(killedInTime){
   updateHUD();
   
   document.getElementById('rDmgPct').textContent = Math.round(dmgPct*100) + '%';
-  // ★ 注意這裡：原本是 textContent，必須改成 innerHTML 才能順利顯示我們剛剛加的 <br> 換行與顏色標籤！
   document.getElementById('rBaseScore').innerHTML = resultText;
-  
   document.getElementById('rTotal').textContent = rewardCoins.toLocaleString();
-  document.getElementById('bossResult').classList.add('show');
+  if(_domCache.bossResult) _domCache.bossResult.classList.add('show');
 
   if (killedInTime) bossLevel++; 
 }
@@ -892,18 +911,18 @@ function triggerBoss(){
   fishes = [];
   
   // 更新 UI 等級標題
-  const hpLabel = document.getElementById('bossHpLabel');
+  const hpLabel = _domCache.bossHpLabel;
   if (hpLabel) hpLabel.textContent = `⚠ BOSS 鯊魚王 Lv.${bossLevel + 1} ⚠`;
 
-  document.getElementById('bossTitle').classList.add('show'); 
+  if(_domCache.bossTitle) _domCache.bossTitle.classList.add('show'); 
   showBossHpBar(); 
   updateBossHpBar();
   bossFrame = 0; bossFrameTimer = 0;
   setTimeout(()=>{ 
-    document.getElementById('bossTitle').classList.remove('show'); 
+    if(_domCache.bossTitle) _domCache.bossTitle.classList.remove('show'); 
     boss.state = 'active'; 
     bossTimerActive = true; 
-    document.getElementById('bossTimer').classList.add('show'); 
+    if(_domCache.bossTimer) _domCache.bossTimer.classList.add('show'); 
   }, BOSS_ENTER_DURATION * 1000);
 }
 
@@ -976,7 +995,7 @@ function checkBossCollision(){
       spawnParticles(b.x, b.y, '#ff4400', 10, 2, 7, 40);
       spawnFloatingText(b.x, b.y - 20, `-${betAmount}`, 35, '#ff6622', 14);
       if(boss.hp <= 0){
-        boss.state = 'dying'; boss.enterTimer = 2.5; bossTimerActive = false; document.getElementById('bossTimer').classList.remove('show');
+        boss.state = 'dying'; boss.enterTimer = 2.5; bossTimerActive = false; if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show');
         for(let i=0; i<5; i++){ setTimeout(()=>{ spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0)); spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true); }, i*300); }
         spawnFloatingText(boss.x, boss.y-100, 'BOSS 擊殺！限時獎勵 ×1.5', 120, '#ffee00', 30);
         
@@ -1237,7 +1256,7 @@ function createBullet(x, y, angle, speed, type) {
 
 // 🔥 更新 Combo 介面 (暗紅加熱轉白熱化，初始更小)
 function updateComboUI() {
-  const el = document.getElementById('comboDisplay');
+  const el = _domCache.comboDisplay;
   if (!el || comboCount < 2) return; 
 
   el.textContent = `Combo x${comboCount}`;
@@ -1436,7 +1455,7 @@ function updateDrawFlyingCoins(dt) {
 
   if (coinsHitThisFrame) {
     AudioEngine.play(SOUNDS.coin, 0.4); 
-    const el = document.getElementById('coinsDisplay');
+    const el = _domCache.coinsDisplay;
     if(el) { 
       el.style.transform = 'scale(1.35)'; 
       if (window.coinTimer) clearTimeout(window.coinTimer);
@@ -1519,21 +1538,21 @@ function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
   }
 }
 
-function drawBackground(){
-  // ★ 設定背景放大比例 (1.15 代表放大 15%)
-  const zoom = 1.15; 
-  const bgW = W * zoom;
-  const bgH = H * zoom;
-  const offsetX = (W - bgW) / 2;
-  const offsetY = (H - bgH) / 2;
+// ★ 效能優化：背景 zoom 值為常數，提出到初始化階段，不在 drawBackground 裡每幀重算
+const BG_ZOOM    = 1.15;
+const BG_W       = W * BG_ZOOM;
+const BG_H       = H * BG_ZOOM;
+const BG_OFFSET_X = (W - BG_W) / 2;
+const BG_OFFSET_Y = (H - BG_H) / 2;
 
+function drawBackground(){
   // ★ iOS 效能優化：跳過 webm 影片，直接用靜態圖，省下影片解碼的 GPU 開銷
   if(!isIOS && bgVideo && bgVideo.readyState >= 2){ 
-    ctx.drawImage(bgVideo, offsetX, offsetY, bgW, bgH); 
+    ctx.drawImage(bgVideo, BG_OFFSET_X, BG_OFFSET_Y, BG_W, BG_H); 
     return; 
   }
   if(bgImage && bgImage.complete && bgImage.naturalWidth > 0){ 
-    ctx.drawImage(bgImage, offsetX, offsetY, bgW, bgH); 
+    ctx.drawImage(bgImage, BG_OFFSET_X, BG_OFFSET_Y, BG_W, BG_H); 
     return; 
   }
   
@@ -1715,15 +1734,26 @@ function updateDrawFloatingTexts(){
 
 // ── 智慧型快取變數 ──
 let lastCoins = -1, lastScore = -1, lastBet = -1;
+// ★ 效能優化：HUD dirty flag，防止一幀內多次 DOM 寫入（高火力射擊時會觸發多次 updateHUD）
+let _hudDirty = false;
 
 // 📊 更新 UI (智慧型效能版：數值有改變才去動 DOM，徹底解決排版卡頓)
-function updateHUD() { 
+// ★ 全面改用 _domCache，消除每次呼叫的 getElementById 開銷
+function updateHUD() {
+  // ★ 標記為 dirty，實際 DOM 寫入延遲到 _flushHUD() 在幀尾統一執行
+  _hudDirty = true;
+}
+
+function _flushHUD() {
+  if (!_hudDirty) return;
+  _hudDirty = false;
+
   if (coins !== lastCoins) { 
-    document.getElementById('coinsDisplay').textContent = coins.toLocaleString(); 
+    if(_domCache.coinsDisplay) _domCache.coinsDisplay.textContent = coins.toLocaleString(); 
     lastCoins = coins; 
   }
   if (sessionScore !== lastScore) { 
-    document.getElementById('scoreDisplay').textContent = sessionScore.toLocaleString(); 
+    if(_domCache.scoreDisplay) _domCache.scoreDisplay.textContent = sessionScore.toLocaleString(); 
     lastScore = sessionScore; 
   }
 
@@ -1735,25 +1765,22 @@ function updateHUD() {
     triggerBoss();
   }
 
-  const goalEl = document.querySelector('.score-max');
-  if(goalEl) goalEl.textContent = `/${currentGoal}`;
-  // 👆 ★ 插入結束 👆
+  if(_domCache.scoreMax) _domCache.scoreMax.textContent = `/${currentGoal}`;
 
   if (betAmount !== lastBet) {
-    document.getElementById('betDisplay').textContent = betAmount; 
-    const barrelEl = document.getElementById('cannonBarrel');
+    if(_domCache.betDisplay) _domCache.betDisplay.textContent = betAmount; 
+    const barrelEl = _domCache.barrelEl;
     if (barrelEl) {
       if (betAmount < 20) {
         barrelEl.src = '砲管A.png'; 
-        barrelEl.style.filter = 'none'; // ★ 關閉發光
+        barrelEl.style.filter = 'none';
       }
       else if (betAmount < 100) {
         barrelEl.src = '砲管B.png'; 
-        barrelEl.style.filter = 'none'; // ★ 關閉發光
+        barrelEl.style.filter = 'none';
       }
       else {
         barrelEl.src = '砲管C.png'; 
-        // ★ 只在換上電漿砲的「那一瞬間」才開啟發光濾鏡，拯救手機效能！
         barrelEl.style.filter = 'drop-shadow(0 0 15px #00e5ff) brightness(1.2)';
       }
     }
@@ -1768,7 +1795,8 @@ let spawnTimer = 0;
 let lastRafTime = 0; // ★ iOS 60fps 限頻用
 function gameLoop(timestamp){
   // ★ iOS 效能優化：強制限制在 60fps，避免 ProMotion 120Hz 螢幕白白耗電跑兩倍運算
-  if(isIOS && timestamp - lastRafTime < 16.6){
+  // 修正：跳幀時不再多呼叫一次 rAF，改用 return 讓下一個 rAF callback 自然觸發
+  if(isIOS && timestamp - lastRafTime < 16.4){
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1782,7 +1810,7 @@ function gameLoop(timestamp){
     comboTimer -= dt;
     if (comboTimer <= 0) {
       comboCount = 0;
-      const el = document.getElementById('comboDisplay');
+      const el = _domCache.comboDisplay;
       if (el) {
         el.classList.remove('active');
         // ★ 這裡的隱藏尺寸同步改為 0.25
@@ -1856,10 +1884,14 @@ function gameLoop(timestamp){
   }
 
   checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
+  // ★ 效能優化：幀尾統一 flush HUD，把這幀所有 updateHUD() 呼叫合併成一次 DOM 寫入
+  _flushHUD();
   updateHUD();
   if(bossTimerActive && boss.state === 'active'){
-    bossTimeLeft -= dt; const timeDisp = Math.max(0, Math.ceil(bossTimeLeft)); const el = document.getElementById('bossTimerNum'); el.textContent = timeDisp; el.className = timeDisp <= 3 ? 'urgent' : '';
-    if(bossTimeLeft <= 0){ bossTimerActive = false; boss.state = 'dying'; boss.enterTimer = 2.5; document.getElementById('bossTimer').classList.remove('show'); setTimeout(()=> settleBossResult(false), 500); }
+    bossTimeLeft -= dt; const timeDisp = Math.max(0, Math.ceil(bossTimeLeft)); 
+    const el = _domCache.bossTimerNum; 
+    if(el){ el.textContent = timeDisp; el.className = timeDisp <= 3 ? 'urgent' : ''; }
+    if(bossTimeLeft <= 0){ bossTimerActive = false; boss.state = 'dying'; boss.enterTimer = 2.5; if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show'); setTimeout(()=> settleBossResult(false), 500); }
   }
 
   // ✅ 動態觸發邏輯
@@ -1903,7 +1935,8 @@ function gameLoop(timestamp){
    
   // ★ 新版大砲轉向與變色邏輯
   const cssAngle = (cannon.angle + Math.PI/2) * (180 / Math.PI);
-  const barrelEl = document.getElementById('cannonBarrel');
+  // ★ 效能優化：使用快取的 barrelEl，不再每幀 getElementById
+  const barrelEl = _domCache.barrelEl;
   
   // 每一幀讓後座力慢慢歸零
   recoilAmount *= 0.8; 
@@ -1951,7 +1984,7 @@ canvas.addEventListener('touchstart', e=>{ e.preventDefault(); const t = e.chang
 canvas.addEventListener('touchmove', e=>{ e.preventDefault(); const t = e.changedTouches[0]; const p = toLogical(t.clientX, t.clientY); mouseX=p.x; mouseY=p.y; }, { passive:false });
 canvas.addEventListener('touchend', e=>{ e.preventDefault(); mouseDown = false; }, { passive:false });
 
-document.getElementById('bossResultClose').addEventListener('click', ()=>{ document.getElementById('bossResult').classList.remove('show'); if(boss.state === 'dead'){ boss.state = 'idle'; boss.hp = boss.maxHp; } });
+document.getElementById('bossResultClose').addEventListener('click', ()=>{ if(_domCache.bossResult) _domCache.bossResult.classList.remove('show'); if(boss.state === 'dead'){ boss.state = 'idle'; boss.hp = boss.maxHp; } });
 const BET_VALS = [1, 5, 10, 15, 20, 50, 75, 100, 200, 500];
 document.getElementById('betDown').addEventListener('click',()=>{ const i=BET_VALS.indexOf(betAmount); if(i>0){ betAmount=BET_VALS[i-1]; updateHUD(); } });
 
@@ -2052,6 +2085,22 @@ startBtn.addEventListener('click', () => {
   } else if (docElm.msRequestFullscreen) { // IE/Edge
     docElm.msRequestFullscreen();
   }
+
+  // ★ 效能優化：一次性初始化所有 DOM 快取，之後 gameLoop 直接用，不再 getElementById
+  _domCache.barrelEl     = document.getElementById('cannonBarrel');
+  _domCache.coinsDisplay = document.getElementById('coinsDisplay');
+  _domCache.scoreDisplay = document.getElementById('scoreDisplay');
+  _domCache.betDisplay   = document.getElementById('betDisplay');
+  _domCache.comboDisplay = document.getElementById('comboDisplay');
+  _domCache.bossHpFill   = document.getElementById('bossHpFill');
+  _domCache.bossTimerNum = document.getElementById('bossTimerNum');
+  _domCache.bossTimer    = document.getElementById('bossTimer');
+  _domCache.bossAlert    = document.getElementById('bossAlert');
+  _domCache.bossHpBar    = document.getElementById('bossHpBar');
+  _domCache.bossTitle    = document.getElementById('bossTitle');
+  _domCache.bossResult   = document.getElementById('bossResult');
+  _domCache.bossHpLabel  = document.getElementById('bossHpLabel');
+  _domCache.scoreMax     = document.querySelector('.score-max');
 
   // 1. 淡出隱藏 Loading 畫面
   const ls = document.getElementById('loadingScreen');
