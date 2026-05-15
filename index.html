@@ -590,7 +590,7 @@ const ASSETS = {
   },
 
   fishSprites: {
-    2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'straight', sineAmp: 25, formation: 'single', spawnDir: 'all' },  // 小魚B
+    2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'arc', sineAmp: 25, formation: 'single', formationCount: 1, spawnDir: 'all' },  // 小魚B
     3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line' },  // 飛魚
     4: { sheet: '小丑魚.webp', frames: 145, cols: 5, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
     5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 河豚
@@ -599,7 +599,7 @@ const ASSETS = {
     9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
     10: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
     11: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
-    12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, spawnDir: 'horizontal' },  // 錘頭鯊
+    12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, pathType: 'arc', spawnDir: 'horizontal' },  // 錘頭鯊
     13: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
   }
 };
@@ -658,10 +658,10 @@ let comboTimer     = 0;
 
 // ★ 關卡與 Boss 漸進獎勵變數
 let bossLevel       = 0;
-const STAGE_GOALS   = [10000, 20000, 40000, 80000, 160000]; // 各關卡 Boss 觸發門檻
-const STAGE_REWARDS = [3000, 6000, 12000, 24000, 48000];   // 各關卡 Boss 擊殺獎金
-const STAGE_BOSS_HP = [750, 1500, 3000, 6000, 12000];
-const STAGE_BOSS_TIME = [15, 20, 25, 30, 40];
+const STAGE_GOALS   = [5000, 10000, 20000, 40000, 80000, 160000]; 
+const STAGE_REWARDS = [1500, 3000, 6000, 12000, 24000, 48000];   
+const STAGE_BOSS_HP = [375, 750, 1500, 3000, 6000, 12000];
+const STAGE_BOSS_TIME = [12, 15, 20, 25, 30, 40];
 
 let betAmount      = 10;
 let autoFire       = false;
@@ -752,9 +752,8 @@ const FISH_TYPES = [
   { id:13, name:'魟魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:2.5, hp:1, mult:25, freq:15 },
 ];
 
-let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [];
-// ★ 物件回收池 — 新增 fishPool，讓死掉的魚物件可以被複用，消除最大的 GC 來源
-let bulletPool = [], particlePool = [], explosionPool = [], plasmaPool = [], floatingTextPool = [], fishPool = [];
+let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [], ripples = [];
+let bulletPool = [], particlePool = [], explosionPool = [], plasmaPool = [], floatingTextPool = [], fishPool = [], ripplePool = [];
 
 const cannon = { x: W/2, y: H-50, angle: -Math.PI/2 };
 
@@ -861,19 +860,20 @@ function settleBossResult(killedInTime){
   
   if (killedInTime) {
     rewardCoins = STAGE_REWARDS[bossLevel];
-    if (!rewardCoins) rewardCoins = 48000 * Math.pow(2, bossLevel - 4);
+    if (!rewardCoins) rewardCoins = 48000 * Math.pow(2, bossLevel - 5); // ★ 變成 -5
     
-    // 👇 ★ 修改解鎖提示文字：擊敗第 3 關 (索引 2) 才跳出解鎖 500 倍 👇
-    if (bossLevel === 0) {
+    // 👇 ★ 改變解鎖時機：擊敗第2關(1萬分)解鎖75倍，第4關(4萬分)解鎖500倍
+    if (bossLevel === 1) { 
       resultText = "過關大獎！<br><span style='color:#00e5ff; font-size:16px; text-shadow: 0 0 8px #00e5ff;'>✨ 解鎖雙管重砲 (最高75倍) ✨</span>";
-    } else if (bossLevel === 2) { // 擊敗第三關 Boss (bossLevel 為 2)
+    } else if (bossLevel === 3) { 
       resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>🔥 解鎖電漿巨砲 (最高500倍) 🔥</span>";
     } else {
       resultText = "過關大獎！";
     }
     
   } else {
-    const currentGoal = STAGE_GOALS[bossLevel] || 320000;
+    // ★ 失敗獎金也同步更新公式
+    const currentGoal = STAGE_GOALS[bossLevel] || (160000 * Math.pow(2, bossLevel - 5));
     rewardCoins = Math.floor(currentGoal * 0.1 * dmgPct);
     resultText = "挑戰失敗 (安慰獎)";
   }
@@ -896,7 +896,7 @@ function triggerBoss(){
 
   // ★ 無限翻倍邏輯：如果超過前 5 關，血量會以 12000 為基礎每關翻一倍
   let currentMaxHp = STAGE_BOSS_HP[bossLevel];
-  if (!currentMaxHp) currentMaxHp = 12000 * Math.pow(2, bossLevel - 4); 
+  if (!currentMaxHp) currentMaxHp = 12000 * Math.pow(2, bossLevel - 5); 
   
   // ★ 動態讀取停留時間
   let currentLimit = STAGE_BOSS_TIME[bossLevel] || 45;
@@ -996,6 +996,7 @@ function checkBossCollision(){
       updateComboUI();
       spawnParticles(b.x, b.y, '#ff4400', 10, 2, 7, 40);
       spawnFloatingText(b.x, b.y - 20, `-${betAmount}`, 35, '#ff6622', 14);
+      if (b.type === 3) spawnRipple(b.x, b.y, 1.5);
       if(boss.hp <= 0){
         boss.state = 'dying'; boss.enterTimer = 2.5; bossTimerActive = false; if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show');
         for(let i=0; i<5; i++){ setTimeout(()=>{ spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0)); spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true); }, i*300); }
@@ -1158,7 +1159,7 @@ function spawnFish(){
   else if(side===2){ startX=rand(50,W-50); startY=H+f_size+10; vx=rand(-0.4,0.4)*spd; vy=-spd; }
   else { startX=-f_size-10; startY=rand(80,H-80); vx=spd; vy=rand(-0.3,0.3)*spd; }
 
-  // ★ 動態計算陣型間距：如果有設定長方形寬度 (hitW) 就用它，否則用圓形直徑 (size * 2.2)
+  // ★ 動態計算陣型間距
   const fishLength = f_hitType === 'rect' ? f_hitW : f_size * 2.2;
   const spacing = fishLength * 1.15; 
 
@@ -1170,30 +1171,41 @@ function spawnFish(){
     let ox = 0, oy = 0;
     
     // 計算陣型偏移量
-      if(formation === 'line'){
-        ox = -vx * (spacing/spd) * i;
-        oy = -vy * (spacing/spd) * i;
-      } else if(formation === 'v_shape' && i > 0){
-        const sideSign = (i%2===0) ? 1 : -1;
-        const step = Math.ceil(i/2);
-        const nx = -vy/spd, ny = vx/spd;
-        
-        // ★ 終極緊湊版：數值大幅調小！
-        const backDist = 0.6;   // 原本 0.85 -> 改 0.4 (前後貼緊緊)
-        const sideSpread = 0.6; // 原本 1.1 -> 改 0.45 (左右靠超攏)
-        
-        ox = (-vx/spd * step * spacing * backDist) + (nx * sideSign * step * spacing * sideSpread);
-        oy = (-vy/spd * step * spacing * backDist) + (ny * sideSign * step * spacing * sideSpread);
-      }
+    if(formation === 'line'){
+      ox = -vx * (spacing/spd) * i;
+      oy = -vy * (spacing/spd) * i;
+    } else if(formation === 'v_shape' && i > 0){
+      const sideSign = (i%2===0) ? 1 : -1;
+      const step = Math.ceil(i/2);
+      const nx = -vy/spd, ny = vx/spd;
+      const backDist = 0.6;   
+      const sideSpread = 0.6; 
+      ox = (-vx/spd * step * spacing * backDist) + (nx * sideSign * step * spacing * sideSpread);
+      oy = (-vy/spd * step * spacing * backDist) + (ny * sideSign * step * spacing * sideSpread);
+    } else if(formation === 'circle') {
+      // ★ 拿掉 i > 0，讓 count 隻魚完美均分 360 度
+      const angle = (Math.PI * 2 / count) * i; 
+      // ★ 把半徑基數稍微調大一點(1.5)，讓圓圈更大氣，不會擠在一起
+      const radius = spacing * Math.max(1.5, count / 4); 
+      ox = Math.cos(angle) * radius;
+      oy = Math.sin(angle) * radius;
+    }
       
-    // 產生魚隻實體 — ★ 優先從 fishPool 複用舊物件，消除最大的 GC 壓力來源
+    // 產生魚隻實體 — ★ 優先從 fishPool 複用舊物件
     let fish = fishPool.length > 0 ? fishPool.pop() : {};
+    const tMin = sprCfg.turnRateMin || 0.0005;
+    const tMax = sprCfg.turnRateMax || 0.0015;
     Object.assign(fish, baseType, {
       x: startX + ox, y: startY + oy, vx, vy,
       hp: f_hp, maxHp: f_hp,
       mult: f_mult, size: f_size,
       hitType: f_hitType, hitW: f_hitW, hitH: f_hitH,
       angle: Math.atan2(vy, vx),
+      
+      // ★ 將數值降到 0.0005 ~ 0.0015 之間，創造如長弓般的優美大弧線
+      arcAngle: Math.atan2(vy, vx), 
+      turnRate: (pathType === 'arc') ? (Math.random() > 0.5 ? rand(tMin, tMax) : rand(-tMax, -tMin)) : 0,
+      
       pathType: pathType,
       sinePhase: baseSinePhase,
       sineAmp: sineAmp,
@@ -1379,10 +1391,12 @@ function checkCollisions(){
         spawnParticles(b.x, b.y, pColor, pCount, 2, pSpd, 35);
         // 2. 產生內圈高亮核心
         spawnParticles(b.x, b.y, '#ffffff', Math.floor(pCount/2), 1, pSpd*0.5, 20);
+        
 
         if (b.type === 3) {
+          // ★ 三階電漿巨砲專屬：空間扭曲水波紋！
+          spawnRipple(b.x, b.y, 1.2);
           // ★ 第三階：觸發範圍 180px 的電漿大爆炸！
-          // ★ 回收池：複用舊物件
           let pe = plasmaPool.length > 0 ? plasmaPool.pop() : {};
           pe.x = b.x; pe.y = b.y; pe.life = 30; pe.maxLife = 30;
           plasmaExplosions.push(pe);
@@ -1515,7 +1529,54 @@ function updateDrawPlasma() {
   ctx.restore();
 }
 
+// 🌀 生成空間扭曲水波紋 (大魚專屬)
+function spawnRipple(x, y, scale = 1.0) {
+  // 限制同畫面波紋數量，保護手機效能
+  if (ripples.length > 5) return; 
+  
+  let r = ripplePool.length > 0 ? ripplePool.pop() : {};
+  r.x = x; r.y = y;
+  r.radius = 10 * scale;
+  r.speed = rand(14, 20) * scale; // 衝擊波擴散速度極快
+  r.life = 1.0;                 
+  ripples.push(r);
+}
 
+// 🌀 繪製空間扭曲水波紋 (雙層混合模式製造光學折射感)
+function updateDrawRipples() {
+  if (ripples.length === 0) return;
+  ctx.save();
+  
+  for (let i = ripples.length - 1; i >= 0; i--) {
+    let r = ripples[i];
+    
+    // 1. 波峰：使用 'color-dodge' 製造高光折射感 (像水面凸起的反光)
+    ctx.globalCompositeOperation = 'color-dodge'; 
+    ctx.globalAlpha = Math.max(0, r.life * 0.9);
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+    ctx.lineWidth = 8 + (15 * r.life); // 波紋邊緣逐漸變細
+    ctx.strokeStyle = '#88eeff'; 
+    ctx.stroke();
+
+    // 2. 波谷：使用 'multiply' 製造暗部溝槽感 (像水面凹下的深淵)
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = Math.max(0, r.life * 0.6);
+    ctx.beginPath();
+    ctx.arc(r.x, r.y, Math.max(0.1, r.radius - 12), 0, Math.PI * 2);
+    ctx.lineWidth = 15;
+    ctx.strokeStyle = '#003355'; 
+    ctx.stroke();
+
+    // 更新波紋狀態 (加入阻力減速的物理手感)
+    r.radius += r.speed;
+    r.speed *= 0.92; 
+    r.life -= 0.045; 
+
+    if (r.life <= 0) ripplePool.push(ripples.splice(i, 1)[0]);
+  }
+  ctx.restore();
+}
 
 // ★ 回收池版浮動文字：統一入口，避免每次 push 都 new 一個 {}
 function spawnFloatingText(x, y, text, life, color, size){
@@ -1758,7 +1819,7 @@ function _flushHUD() {
 
   // ✅ 動態觸發邏輯 (無限翻倍版)
   let currentGoal = STAGE_GOALS[bossLevel];
-  if (!currentGoal) currentGoal = 160000 * Math.pow(2, bossLevel - 4);
+  if (!currentGoal) currentGoal = 160000 * Math.pow(2, bossLevel - 5);
 
   if(boss.state === 'idle' && sessionScore >= currentGoal) {
     triggerBoss();
@@ -1830,16 +1891,28 @@ function gameLoop(timestamp){
     if(f.dead){ fishPool.push(fishes.splice(i,1)[0]); continue; } // ★ 死魚回收進 pool
     
     // 計算位移與角度
-    if(f.pathType==='sine'){
+    if (f.pathType === 'sine') {
       f.sinePhase += f.sineFreq * dt * 60; 
       const mag = Math.hypot(f.vx, f.vy); 
       const nx = -f.vy/mag, ny = f.vx/mag;
       f.x += f.vx*dt*60 + nx*Math.sin(f.sinePhase)*f.sineAmp*dt*2; 
       f.y += f.vy*dt*60 + ny*Math.sin(f.sinePhase)*f.sineAmp*dt*2;
       f.angle = Math.atan2(f.vy, f.vx) + Math.cos(f.sinePhase) * 0.15;
-    } else { 
-      f.x += f.vx*dt*60; 
-      f.y += f.vy*dt*60; 
+    } 
+    else if (f.pathType === 'arc') {
+      // ★ 弧線游法：保持等速，但每一幀都在微調角度 (像開車轉方向盤)
+      const speed = Math.hypot(f.vx, f.vy);
+      f.arcAngle += f.turnRate * dt * 60;  // 根據曲率轉向
+      f.vx = Math.cos(f.arcAngle) * speed;
+      f.vy = Math.sin(f.arcAngle) * speed;
+      f.x += f.vx * dt * 60; 
+      f.y += f.vy * dt * 60; 
+      f.angle = f.arcAngle; // 讓魚頭方向跟著弧線轉
+    } 
+    else { 
+      // 預設直線
+      f.x += f.vx * dt * 60; 
+      f.y += f.vy * dt * 60; 
       f.angle = Math.atan2(f.vy, f.vx);
     }
     
@@ -1885,7 +1958,7 @@ function gameLoop(timestamp){
     drawBullet(b);
   }
 
-  checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
+  checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawRipples(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
   // ★ 效能優化：幀尾統一 flush HUD，把這幀所有 updateHUD() 呼叫合併成一次 DOM 寫入
   _flushHUD();
   updateHUD();
@@ -1897,7 +1970,7 @@ function gameLoop(timestamp){
   }
 
   // ✅ 動態觸發邏輯
-  const currentGoal = STAGE_GOALS[bossLevel] || 320000;
+  const currentGoal = STAGE_GOALS[bossLevel] || (160000 * Math.pow(2, bossLevel - 5));
 
   if(boss.state === 'idle' && sessionScore >= currentGoal) {
     triggerBoss();
@@ -1992,12 +2065,11 @@ document.getElementById('betDown').addEventListener('click',()=>{ const i=BET_VA
 
 // 👇 ★ 修改火力解鎖門檻：第二與第三關都卡在 75 倍 👇
 document.getElementById('betUp').addEventListener('click',()=>{ 
-  // ★ 定義當前關卡的火力上限
-  let maxAllowed = 15;                         // 第一關 (bossLevel 0)：最高 15 倍
-  if (bossLevel === 1 || bossLevel === 2) {    // 第二關與第三關：最高 75 倍
+  let maxAllowed = 15;                         // ★ 第 1 關(5000)與第 2 關(10000)：最高 15 倍
+  if (bossLevel === 2 || bossLevel === 3) {    // ★ 第 3 關(20000)與第 4 關(40000)：最高 75 倍
     maxAllowed = 75; 
   }
-  if (bossLevel >= 3) {                        // 擊敗第三關 Boss (bossLevel 變成 3) 後：全開 500 倍
+  if (bossLevel >= 4) {                        // ★ 第 5 關(80000)以上：全開 500 倍
     maxAllowed = 500; 
   }
 
