@@ -673,8 +673,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const chkSound = document.getElementById('chk-sound');
     chkSound.addEventListener('change', (e) => {
         AudioEngine.sfxEnabled = e.target.checked;
-        if (AudioEngine.bgmAudio) {
-            AudioEngine.bgmAudio.muted = !AudioEngine.sfxEnabled;
+        if (AudioEngine.bgmGain) {
+            AudioEngine.bgmGain.gain.value = e.target.checked ? 0.4 : 0;
         }
     });
 });
@@ -805,45 +805,57 @@ const SOUNDS = {
   bgm:   'music.mp3'
 };
 
-// ★ 解除瀏覽器靜音封印：玩家第一次點擊畫面時，啟動背景音樂
-let audioUnlocked = false;
-window.addEventListener('mousedown', () => {
-  if (!audioUnlocked) {
-    audioUnlocked = true;
-    AudioEngine.playBGM(SOUNDS.bgm);
-  }
-}, { once: true });
-
 // ════════════════════════════════════════════
-//  🎵 音效引擎 (效能優化版 - Audio Pool)
+//  🎵 音效引擎 (Web Audio API 零延遲版)
 // ════════════════════════════════════════════
 const AudioEngine = {
-  bgmAudio: null,
-  pool: {}, 
-  sfxEnabled: true, // ★ 新增總開關
+  ctx: null,
+  buffers: {},
+  sfxEnabled: true,
+  bgmSource: null,
+  bgmGain: null,
 
-  play: function(src, volume = 1.0) {
-    if (!this.sfxEnabled) return; // ★ 靜音時不播
-    if (!this.pool[src]) this.pool[src] = []; 
-    let sound = this.pool[src].find(a => a.paused || a.ended);
-    if (!sound) {
-      if (this.pool[src].length > 10) return; 
-      sound = new Audio(src);
-      this.pool[src].push(sound);
+  // 在 startBtn 點擊後呼叫，預先解碼所有音效
+  async preload(srcs) {
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (const src of srcs) {
+      try {
+        const res = await fetch(src);
+        const arrayBuffer = await res.arrayBuffer();
+        this.buffers[src] = await this.ctx.decodeAudioData(arrayBuffer);
+      } catch(e) {
+        console.warn(`音效載入失敗: ${src}`, e);
+      }
     }
-    sound.volume = volume;
-    sound.currentTime = 0; 
-    sound.play().catch(() => {});
   },
 
-  playBGM: function(src, volume = 0.4) {
-    if (!this.bgmAudio) {
-      this.bgmAudio = new Audio(src);
-      this.bgmAudio.loop = true;
-      this.bgmAudio.volume = volume;
-    }
-    this.bgmAudio.play().catch(() => {});
-    this.bgmAudio.muted = !this.sfxEnabled; // ★ 依據開關決定是否靜音
+  // 開槍時呼叫，幾乎零延遲
+  play(src, volume = 1.0) {
+    if (!this.sfxEnabled || !this.ctx || !this.buffers[src]) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.buffers[src];
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.value = volume;
+    source.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+    source.start(0);
+  },
+
+  // 播放循環背景音樂
+  playBGM(src, volume = 0.4) {
+    if (!this.ctx || !this.buffers[src]) return;
+    if (this.bgmSource) { try { this.bgmSource.stop(); } catch(e) {} }
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.buffers[src];
+    source.loop = true;
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.value = this.sfxEnabled ? volume : 0;
+    source.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+    source.start(0);
+    this.bgmSource = source;
+    this.bgmGain = gainNode;
   }
 };
 
@@ -2348,7 +2360,14 @@ uniqueAssets.forEach(url => {
 });
 
 // ★ 點擊開始按鈕 (解鎖音樂、進入遊戲、並請求全螢幕)
-startBtn.addEventListener('click', () => {
+startBtn.addEventListener('click', async () => {
+  // ★ 預載所有音效並啟動 BGM（必須在使用者點擊後才能建立 AudioContext）
+  await AudioEngine.preload([
+    SOUNDS.shoot1, SOUNDS.shoot2, SOUNDS.shoot3,
+    SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm
+  ]);
+  AudioEngine.playBGM(SOUNDS.bgm);
+
   // 0. 請求全螢幕 (跨瀏覽器相容寫法)
   const docElm = document.documentElement;
   if (docElm.requestFullscreen) {
