@@ -673,8 +673,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const chkSound = document.getElementById('chk-sound');
     chkSound.addEventListener('change', (e) => {
         AudioEngine.sfxEnabled = e.target.checked;
+        // Web Audio API 路徑
         if (AudioEngine.bgmGain) {
             AudioEngine.bgmGain.gain.value = e.target.checked ? 0.4 : 0;
+        }
+        // Audio Pool fallback 路徑
+        if (AudioEngine._bgmAudio) {
+            AudioEngine._bgmAudio.muted = !e.target.checked;
         }
     });
 });
@@ -698,13 +703,29 @@ const ASSETS = {
     frameW: 250, frameH: 250, frames: 15, fps: 24,
   },
 
-  boss: {
-    sheet:  '大鯊魚.webp',
-    frames: 192, cols: 8,
-    displayW: 800, displayH: 449,
-    bgMode: 'none',
-    hp: 750, mult: 500, size: 200,
-  },
+  // ★ 多Boss版：bossList 陣列
+  bossList: [
+    { name: '大鯊魚王', stageMin: 1, stageMax: 2, duration: 15,
+      sheet: '大鯊魚.webp', frames: 100, cols: 10,
+      displayW: 800, displayH: 449, bgMode: 'none',
+      hp: 750, mult: 500, size: 200,
+      pathType: 'hover', hoverIntensity: 8, enterFrom: 'left' },
+    { name: '克拉肯', stageMin: 3, stageMax: 4, duration: 30,
+      sheet: '克拉肯.webp', frames: 40, cols: 10,
+      displayW: 800, displayH: 449, bgMode: 'none',
+      hp: 750, mult: 500, size: 200,
+      pathType: 'sine', sineAmp: 27, sineFreq: 0.0008, enterFrom: 'right' },
+    { name: '紫晶蟹', stageMin: 5, stageMax: 6, duration: 15,
+      sheet: '紫晶蟹.webp', frames: 20, cols: 10,
+      displayW: 800, displayH: 449, bgMode: 'none',
+      hp: 750, mult: 500, size: 200,
+      pathType: 'straight', enterFrom: 'left' },
+  ],
+
+  // 向後相容（指向第一隻Boss）
+  boss: { sheet: '大鯊魚.webp', frames: 100, cols: 10,
+    displayW: 800, displayH: 449, bgMode: 'none',
+    hp: 750, mult: 500, size: 200, },
 
   fishSprites: {
     2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'arc', sineAmp: 25, formation: 'single', formationCount: 1, spawnDir: 'all' },  // 小魚B
@@ -714,8 +735,8 @@ const ASSETS = {
     6: { sheet: '龍蝦.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 龍蝦
     8: { sheet: '章魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
     9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
-    10: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
-    11: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: 0, displayH: 0, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
+    10: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
+    11: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
     12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, pathType: 'arc', spawnDir: 'horizontal' },  // 錘頭鯊
     13: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
   }
@@ -806,7 +827,7 @@ const SOUNDS = {
 };
 
 // ════════════════════════════════════════════
-//  🎵 音效引擎 (Web Audio API 零延遲版)
+//  🎵 音效引擎 (Web Audio API + file:/// 相容版)
 // ════════════════════════════════════════════
 const AudioEngine = {
   ctx: null,
@@ -814,48 +835,105 @@ const AudioEngine = {
   sfxEnabled: true,
   bgmSource: null,
   bgmGain: null,
+  // ★ Audio Pool fallback（file:/// 協議下 fetch 被 CORS 封鎖時使用）
+  _pool: {},
+  _bgmAudio: null,
+  _usePool: false,
+
+  // 輔助：用 XHR 讀取二進制（相容 file:/// 協議）
+  _fetchArrayBuffer(src) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', src, true);
+      xhr.responseType = 'arraybuffer';
+      xhr.onload = () => xhr.status === 0 || xhr.status === 200
+        ? resolve(xhr.response)
+        : reject(new Error(`HTTP ${xhr.status}`));
+      xhr.onerror = () => reject(new Error('XHR error'));
+      xhr.send();
+    });
+  },
 
   // 在 startBtn 點擊後呼叫，預先解碼所有音效
   async preload(srcs) {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    for (const src of srcs) {
-      try {
-        const res = await fetch(src);
-        const arrayBuffer = await res.arrayBuffer();
-        this.buffers[src] = await this.ctx.decodeAudioData(arrayBuffer);
-      } catch(e) {
-        console.warn(`音效載入失敗: ${src}`, e);
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      for (const src of srcs) {
+        try {
+          // ★ 先嘗試 fetch，若失敗（file:///）改用 XHR
+          let arrayBuffer;
+          try {
+            const res = await fetch(src);
+            arrayBuffer = await res.arrayBuffer();
+          } catch(e) {
+            arrayBuffer = await this._fetchArrayBuffer(src);
+          }
+          this.buffers[src] = await this.ctx.decodeAudioData(arrayBuffer);
+        } catch(e) {
+          console.warn(`Web Audio 載入失敗，切換 Audio Pool: ${src}`, e);
+          this._usePool = true; // 任一失敗就整體切換
+        }
       }
+    } catch(e) {
+      console.warn('AudioContext 建立失敗，使用 Audio Pool:', e);
+      this._usePool = true;
     }
   },
 
-  // 開槍時呼叫，幾乎零延遲
+  // 開槍時呼叫
   play(src, volume = 1.0) {
-    if (!this.sfxEnabled || !this.ctx || !this.buffers[src]) return;
-    if (this.ctx.state === 'suspended') this.ctx.resume();
-    const source = this.ctx.createBufferSource();
-    source.buffer = this.buffers[src];
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.value = volume;
-    source.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
-    source.start(0);
+    if (!this.sfxEnabled) return;
+    // ★ Web Audio API 路徑
+    if (!this._usePool && this.ctx && this.buffers[src]) {
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.buffers[src];
+      const gainNode = this.ctx.createGain();
+      gainNode.gain.value = volume;
+      source.connect(gainNode);
+      gainNode.connect(this.ctx.destination);
+      source.start(0);
+      return;
+    }
+    // ★ Audio Pool fallback
+    if (!this._pool[src]) this._pool[src] = [];
+    let sound = this._pool[src].find(a => a.paused || a.ended);
+    if (!sound) {
+      if (this._pool[src].length >= 10) return;
+      sound = new Audio(src);
+      this._pool[src].push(sound);
+    }
+    sound.volume = volume;
+    sound.currentTime = 0;
+    sound.play().catch(() => {});
   },
 
   // 播放循環背景音樂
   playBGM(src, volume = 0.4) {
-    if (!this.ctx || !this.buffers[src]) return;
-    if (this.bgmSource) { try { this.bgmSource.stop(); } catch(e) {} }
-    const source = this.ctx.createBufferSource();
-    source.buffer = this.buffers[src];
-    source.loop = true;
-    const gainNode = this.ctx.createGain();
-    gainNode.gain.value = this.sfxEnabled ? volume : 0;
-    source.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
-    source.start(0);
-    this.bgmSource = source;
-    this.bgmGain = gainNode;
+    // ★ Web Audio API 路徑
+    if (!this._usePool && this.ctx && this.buffers[src]) {
+      if (this.bgmSource) { try { this.bgmSource.stop(); } catch(e) {} }
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.buffers[src];
+      source.loop = true;
+      const gainNode = this.ctx.createGain();
+      gainNode.gain.value = this.sfxEnabled ? volume : 0;
+      source.connect(gainNode);
+      gainNode.connect(this.ctx.destination);
+      source.start(0);
+      this.bgmSource = source;
+      this.bgmGain = gainNode;
+      return;
+    }
+    // ★ Audio Pool fallback
+    if (!this._bgmAudio) {
+      this._bgmAudio = new Audio(src);
+      this._bgmAudio.loop = true;
+      this._bgmAudio.volume = volume;
+    }
+    this._bgmAudio.muted = !this.sfxEnabled;
+    this._bgmAudio.play().catch(() => {});
+    this._bgmAudio.muted = !this.sfxEnabled;
   }
 };
 
@@ -879,6 +957,13 @@ const FISH_TYPES = [
   { id:11, name:'鯊魚', color:'#88ddff', glowColor:'#44aaff', size:50, speed:3, hp:1, mult:20, freq:20 },
   { id:12, name:'錘頭鯊', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:3.2, hp:1, mult:20, freq:20 },
   { id:13, name:'魟魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:2.5, hp:1, mult:25, freq:15 },
+];
+
+// ★ Boss 關卡對應表（Manager 自動生成）
+const BOSS_LIST_CONFIG = [
+  { idx:0, name:'大鯊魚王', stageMin:1, stageMax:2, duration:15 },
+  { idx:1, name:'克拉肯', stageMin:3, stageMax:4, duration:30 },
+  { idx:2, name:'紫晶蟹', stageMin:5, stageMax:6, duration:15 },
 ];
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [], ripples = [];
@@ -929,9 +1014,10 @@ const plasmaImg = new Image();
 plasmaImg.src = '電漿彈.png';
 let plasmaExplosions = [];
 
-// 2. Boss 資產預載
-if (ASSETS.boss && ASSETS.boss.sheet) {
-  const bc = ASSETS.boss;
+// 2. Boss 資產預載（多Boss版：遍歷 bossList 陣列）
+const _bossListToLoad = ASSETS.bossList || (ASSETS.boss ? [ASSETS.boss] : []);
+_bossListToLoad.forEach((bc, idx) => {
+  if (!bc || !bc.sheet) return;
   const img = new Image();
   img.onload = () => {
     const c = bc.cols || 1;
@@ -948,10 +1034,11 @@ if (ASSETS.boss && ASSETS.boss.sheet) {
         bc.frames_cache.push(oc);
       }
     }
-    console.log(`✅ Boss 素材載入成功: ${bc.sheet}`);
+    console.log(`✅ Boss[${idx}] 素材載入成功: ${bc.sheet}`);
   };
+  img.onerror = () => console.warn(`⚠ Boss[${idx}] 素材載入失敗: ${bc.sheet}`);
   img.src = bc.sheet;
-}
+});
 
 // 3. 普通魚種資產預載
 for (const [id, cfg] of Object.entries(ASSETS.fishSprites)) {
@@ -986,7 +1073,29 @@ for (const [id, cfg] of Object.entries(ASSETS.fishSprites)) {
 // ════════════════════════════════════════════
 const BOSS_DW = 800, BOSS_DH = 449, BOSS_ENTER_DURATION = 3.5, BOSS_EXIT_DURATION  = 3.0;
 let bossFrame = 0, bossFrameTimer = 0;
-const boss = { state: 'idle', hp: ASSETS.boss.hp, maxHp: ASSETS.boss.hp, x: -BOSS_DW / 2, y: H / 2, hitFlash: 0, enterTimer: 0, triggerScore: 500 };
+
+// ★ 多Boss版：根據 bossLevel 取得對應的 Boss 定義
+//   bossLevel 從 0 開始，對應「第 1 關」
+function getBossDefForLevel(level) {
+  const list = ASSETS.bossList;
+  if (list && list.length > 0) {
+    const lvl = level + 1; // 轉為第幾關（1-based）
+    for (const b of list) {
+      const min = b.stageMin || 1;
+      const max = (b.stageMax != null) ? b.stageMax : min;
+      if (lvl >= min && lvl <= max) return b;
+    }
+    // 超過所有設定範圍 → 最後一隻 Boss 無限輪迴
+    return list[list.length - 1];
+  }
+  // 向後相容：沒有 bossList 則用舊版 boss 物件
+  return ASSETS.boss || {};
+}
+
+// 目前戰鬥中的 Boss 定義（每次觸發 Boss 戰時更新）
+let _activeBossDef = getBossDefForLevel(0);
+
+const boss = { state: 'idle', hp: _activeBossDef.hp || 750, maxHp: _activeBossDef.hp || 750, x: -BOSS_DW / 2, y: H / 2, hitFlash: 0, enterTimer: 0, triggerScore: 500 };
 
 function showBossHpBar(){ if(_domCache.bossHpBar) _domCache.bossHpBar.classList.add('show'); if(_domCache.bossAlert) _domCache.bossAlert.classList.add('show'); }
 function hideBossUI(){ if(_domCache.bossHpBar) _domCache.bossHpBar.classList.remove('show'); if(_domCache.bossAlert) _domCache.bossAlert.classList.remove('show'); if(_domCache.bossTitle) _domCache.bossTitle.classList.remove('show'); if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show'); }
@@ -1039,12 +1148,15 @@ function triggerBoss(){
   settleNormalScore();
   AudioEngine.play(SOUNDS.boss, 1.0);
 
-  // ★ 無限翻倍邏輯：如果超過前 5 關，血量會以 12000 為基礎每關翻一倍
-  let currentMaxHp = STAGE_BOSS_HP[bossLevel];
-  if (!currentMaxHp) currentMaxHp = 12000 * Math.pow(2, bossLevel - 5); 
-  
-  // ★ 動態讀取停留時間
-  let currentLimit = STAGE_BOSS_TIME[bossLevel] || 45;
+  // ★ 多Boss版：根據當前關卡取得對應的 Boss 定義
+  _activeBossDef = getBossDefForLevel(bossLevel);
+
+  // HP：優先讀 bossDef.hp，沒有則 fallback 到 STAGE_BOSS_HP 陣列
+  let currentMaxHp = _activeBossDef.hp || STAGE_BOSS_HP[bossLevel];
+  if (!currentMaxHp) currentMaxHp = 12000 * Math.pow(2, bossLevel - 5);
+
+  // 持續時間：優先讀 bossDef.duration，沒有則 fallback 到 STAGE_BOSS_TIME 陣列
+  let currentLimit = _activeBossDef.duration || STAGE_BOSS_TIME[bossLevel] || 45;
 
   boss.state = 'entering'; 
   boss.maxHp = currentMaxHp; 
@@ -1053,13 +1165,14 @@ function triggerBoss(){
   boss.enterTimer = BOSS_ENTER_DURATION; 
   bossTimeLeft = currentLimit; 
   bossTimerActive = false; 
-  // ★ 效能優化：回收現有魚到 pool，而不是直接拋棄（原本 fishes = [] 造成大量 GC）
+  // ★ 效能優化：回收現有魚到 pool
   for(let i = 0; i < fishes.length; i++) fishPool.push(fishes[i]);
   fishes.length = 0;
   
-  // 更新 UI 等級標題
+  // ★ 更新 UI：顯示當前 Boss 名稱
+  const bossName = _activeBossDef.name || '鯊魚王';
   const hpLabel = _domCache.bossHpLabel;
-  if (hpLabel) hpLabel.textContent = `⚠ BOSS 鯊魚王 Lv.${bossLevel + 1} ⚠`;
+  if (hpLabel) hpLabel.textContent = `⚠ BOSS ${bossName} Lv.${bossLevel + 1} ⚠`;
 
   if(_domCache.bossTitle) _domCache.bossTitle.classList.add('show'); 
   showBossHpBar(); 
@@ -1075,54 +1188,126 @@ function triggerBoss(){
 
 function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
 function drawBoss(dt){
-  if(boss.state === 'idle' || boss.state === 'dead' || !ASSETS.boss.img) return;
-  const now = Date.now(); let targetX, targetY;
-  if(boss.state === 'entering'){
-    boss.enterTimer -= dt; const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_ENTER_DURATION));
-    targetX = -BOSS_DW/2 + (W/2 + BOSS_DW/2) * t; targetY = H/2 + Math.sin(now * 0.0008) * 15;
-  } else if(boss.state === 'active'){
-    targetX = W/2 + Math.sin(now * 0.0004) * 60; targetY = H/2 + Math.sin(now * 0.0007) * 25;
-  } else if(boss.state === 'dying'){
-    boss.enterTimer -= dt; const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_EXIT_DURATION));
-    targetX = W/2 + (W/2 + BOSS_DW/2) * t; targetY = H/2 + Math.sin(now * 0.0008) * 15;
-    if(boss.enterTimer <= 0){ boss.state = 'dead'; hideBossUI(); setTimeout(()=>{ boss.state = 'idle'; boss.hp = boss.maxHp; }, 500); return; }
-  }
-  const lerpSpeed = 1 - Math.pow(0.01, dt);
-  boss.x += (targetX - boss.x) * lerpSpeed; boss.y += (targetY - boss.y) * lerpSpeed;
-  bossFrameTimer += dt; const bfd = 1/30;
-  while(bossFrameTimer >= bfd){ bossFrameTimer -= bfd; bossFrame = (bossFrame + 1) % ASSETS.boss.frames; }
+  // ★ 改用 _activeBossDef：有圖片才畫，沒有圖片時 fallback 幾何矩形
+  const bd = _activeBossDef;
+  if(boss.state === 'idle' || boss.state === 'dead') return;
 
-  // 繪製 Boss
-  const fc = ASSETS.boss.frames_cache ? ASSETS.boss.frames_cache[bossFrame] : null;
+  const now = Date.now(); let targetX, targetY;
+  const pt = bd.pathType || 'sine';
+  const amp = bd.sineAmp || 25;
+  const freq = bd.sineFreq || 0.0008;
+
+  if(boss.state === 'entering'){
+    boss.enterTimer -= dt;
+    const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_ENTER_DURATION));
+    // 入場方向
+    const enterFrom = bd.enterFrom || 'left';
+    if (enterFrom === 'right') {
+      targetX = W + BOSS_DW/2 - (W/2 + BOSS_DW/2) * t;
+    } else if (enterFrom === 'top') {
+      targetX = W/2;
+      boss.x = W/2; // 水平已定位
+      targetY = -BOSS_DH/2 + (H/2 + BOSS_DH/2) * t;
+    } else { // left (預設)
+      targetX = -BOSS_DW/2 + (W/2 + BOSS_DW/2) * t;
+    }
+    if (enterFrom !== 'top') targetY = H/2 + Math.sin(now * 0.0008) * 15;
+
+  } else if(boss.state === 'active'){
+    // ★ 五種動態軌跡
+    switch(pt) {
+      case 'figure8':
+        targetX = W/2 + Math.sin(now * freq) * amp * 2.5;
+        targetY = H/2 + Math.sin(now * freq * 2) * amp;
+        break;
+      case 'circle':
+        targetX = W/2 + Math.cos(now * freq) * amp * 2;
+        targetY = H/2 + Math.sin(now * freq) * amp;
+        break;
+      case 'hover':
+        const intensity = bd.hoverIntensity || 8;
+        targetX = W/2 + (Math.random() - 0.5) * intensity;
+        targetY = H/2 + (Math.random() - 0.5) * intensity;
+        break;
+      case 'straight':
+        targetX = W/2 + Math.sin(now * freq) * (W/2 - BOSS_DW/2 - 50);
+        targetY = H/2;
+        break;
+      case 'sine':
+      default:
+        targetX = W/2 + Math.sin(now * 0.0004) * 60;
+        targetY = H/2 + Math.sin(now * freq) * amp;
+        break;
+    }
+
+  } else if(boss.state === 'dying'){
+    boss.enterTimer -= dt;
+    const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_EXIT_DURATION));
+    const enterFrom = bd.enterFrom || 'left';
+    if (enterFrom === 'right') {
+      targetX = W/2 - (W/2 + BOSS_DW/2) * t;
+    } else if (enterFrom === 'top') {
+      targetX = W/2;
+      targetY = H/2 - (H/2 + BOSS_DH/2) * t;
+    } else {
+      targetX = W/2 + (W/2 + BOSS_DW/2) * t;
+    }
+    if (enterFrom !== 'top') targetY = H/2 + Math.sin(now * 0.0008) * 15;
+    if(boss.enterTimer <= 0){
+      boss.state = 'dead'; hideBossUI();
+      setTimeout(()=>{ boss.state = 'idle'; boss.hp = boss.maxHp; }, 500);
+      return;
+    }
+  }
+
+  const lerpSpeed = 1 - Math.pow(0.01, dt);
+  boss.x += (targetX - boss.x) * lerpSpeed;
+  boss.y += (targetY - boss.y) * lerpSpeed;
+
+  // 幀動畫推進
+  bossFrameTimer += dt; const bfd = 1/30;
+  while(bossFrameTimer >= bfd){
+    bossFrameTimer -= bfd;
+    bossFrame = (bossFrame + 1) % (bd.frames || 1);
+  }
+
+  // 取得繪製尺寸
+  const dw = bd.displayW || BOSS_DW;
+  const dh = bd.displayH || BOSS_DH;
+
   ctx.save();
-  
-  if (fc) {
-    // 1. 正常畫圖
-    ctx.drawImage(fc, 0, 0, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
-    
-    // 2. ★ 極速效能版：高溫電漿受擊閃光
-    if(boss.hitFlash > 0){
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.5;
-      ctx.drawImage(fc, 0, 0, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
-      ctx.restore();
+
+  if (bd.img) {
+    // ── Sprite 繪製 ──
+    const fc = bd.frames_cache ? bd.frames_cache[bossFrame] : null;
+    if (bd.bgMode === 'black') ctx.globalCompositeOperation = 'screen';
+
+    if (fc) {
+      ctx.drawImage(fc, 0, 0, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+      if(boss.hitFlash > 0){
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5;
+        ctx.drawImage(fc, 0, 0, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+        ctx.restore();
+      }
+    } else {
+      const c = bd.cols || 1;
+      const srcX = (bossFrame % c) * bd.frameW;
+      const srcY = Math.floor(bossFrame / c) * bd.frameH;
+      ctx.drawImage(bd.img, srcX, srcY, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+      if(boss.hitFlash > 0){
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5;
+        ctx.drawImage(bd.img, srcX, srcY, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+        ctx.restore();
+      }
     }
   } else {
-    const c = ASSETS.boss.cols || 1;
-    const srcX = (bossFrame % c) * ASSETS.boss.frameW;
-    const srcY = Math.floor(bossFrame / c) * ASSETS.boss.frameH;
-    // 1. 正常畫圖
-    ctx.drawImage(ASSETS.boss.img, srcX, srcY, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
-    
-    // 2. ★ 極速效能版：高溫電漿受擊閃光
-    if(boss.hitFlash > 0){
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.5;
-      ctx.drawImage(ASSETS.boss.img, srcX, srcY, ASSETS.boss.frameW, ASSETS.boss.frameH, boss.x - BOSS_DW/2, boss.y - BOSS_DH/2, BOSS_DW, BOSS_DH);
-      ctx.restore();
-    }
+    // ── Fallback：幾何矩形（Boss 圖片尚未載入時）──
+    ctx.fillStyle = boss.hitFlash > 0 ? '#ff6600' : '#cc2200';
+    ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 30;
+    ctx.fillRect(boss.x - dw/2, boss.y - dh/2, dw, dh);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Arial'; ctx.textAlign = 'center';
+    ctx.fillText('BOSS', boss.x, boss.y + 10);
   }
 
   if (boss.hitFlash > 0) boss.hitFlash--;
@@ -1130,9 +1315,10 @@ function drawBoss(dt){
 }
 function checkBossCollision(){
   if(boss.state !== 'active') return;
+  const bSize = _activeBossDef.size || 200; // ★ 讀當前Boss的碰撞半徑
   for(let b of bullets){
     if(b.life <= 0) continue;
-    if((Math.pow(b.x - boss.x, 2) / Math.pow(ASSETS.boss.size * 1.8, 2)) + (Math.pow(b.y - boss.y, 2) / Math.pow(ASSETS.boss.size * 1.0, 2)) < 1){
+    if((Math.pow(b.x - boss.x, 2) / Math.pow(bSize * 1.8, 2)) + (Math.pow(b.y - boss.y, 2) / Math.pow(bSize * 1.0, 2)) < 1){
       b.life = 0; boss.hp = Math.max(0, boss.hp - betAmount); boss.hitFlash = 4; updateBossHpBar();
       
       // ★ 核心優化：打 Boss 也能累積 Combo，且倒數計時會重置！
@@ -1749,12 +1935,24 @@ function spawnParticles(x,y,color,count,minSpd,maxSpd,life,isCoin=false){
   }
 }
 
-// ★ 效能優化：背景 zoom 值為常數，提出到初始化階段，不在 drawBackground 裡每幀重算
-const BG_ZOOM    = 1.15;
-const BG_W       = W * BG_ZOOM;
-const BG_H       = H * BG_ZOOM;
-const BG_OFFSET_X = (W - BG_W) / 2;
-const BG_OFFSET_Y = (H - BG_H) / 2;
+// ★ 背景繪製：動態保持原始比例，以高度 H 填滿 canvas，水平置中
+// （letterbox 縮放模式下寬度不會超出，所以直接 fill 即可）
+const BG_ZOOM    = 1.0; // 保留此常數避免其他地方引用報錯
+const BG_W       = W;
+const BG_H       = H;
+const BG_OFFSET_X = 0;
+const BG_OFFSET_Y = 0;
+
+// 計算背景在 canvas 內的繪製矩形（保持原始長寬比，以高度填滿）
+function calcBgRect(source) {
+  const natW = source.videoWidth  || source.naturalWidth  || W;
+  const natH = source.videoHeight || source.naturalHeight || H;
+  const scale = H / natH;
+  const dw = natW * scale;
+  const dh = H;
+  const dx = (W - dw) / 2; // 水平置中
+  return { dx, dy: 0, dw, dh };
+}
 
 function drawBackground(){
   // 🎯 根據 bossLevel 計算當前應該用哪張圖/影片 (每 2 關換一場景)
@@ -1801,15 +1999,17 @@ function drawBackground(){
   const renderIdx = lastAppliedBgIdx === -1 ? 0 : lastAppliedBgIdx;
   const curBgImg = bgImages[renderIdx];
 
-  // ★ 渲染順序 1：動態影片
+  // ★ 渲染順序 1：動態影片（保持原始比例以高度填滿）
   let bgDrawn = false;
   if (!isIOS && bgVideo && bgVideo.readyState >= 2) {
-    ctx.drawImage(bgVideo, BG_OFFSET_X, BG_OFFSET_Y, BG_W, BG_H);
+    const r = calcBgRect(bgVideo);
+    ctx.drawImage(bgVideo, r.dx, r.dy, r.dw, r.dh);
     bgDrawn = true;
   }
-  // ★ 渲染順序 2：靜態圖片
+  // ★ 渲染順序 2：靜態圖片（保持原始比例以高度填滿）
   else if(curBgImg && curBgImg.complete && curBgImg.naturalWidth > 0){
-    ctx.drawImage(curBgImg, BG_OFFSET_X, BG_OFFSET_Y, BG_W, BG_H);
+    const r = calcBgRect(curBgImg);
+    ctx.drawImage(curBgImg, r.dx, r.dy, r.dw, r.dh);
     bgDrawn = true;
   }
   
@@ -2311,7 +2511,8 @@ const allAssetsToLoad = [
   'bg_01.jpg', 'bg_02.jpg', 'bg_03.jpg', 'bg_04.jpg', 'bg_05.jpg',
   'bg_01.mp4', 'bg_02.mp4', 'bg_03.mp4', 'bg_04.mp4', 'bg_05.mp4',
   ASSETS.explosion ? ASSETS.explosion.sheet : null,
-  ASSETS.boss ? ASSETS.boss.sheet : null,
+  // ★ 多Boss版：預載所有 Boss 圖片（bossList 或 fallback 到舊版 boss）
+  ...(ASSETS.bossList ? ASSETS.bossList.map(b => b.sheet) : (ASSETS.boss ? [ASSETS.boss.sheet] : [])),
   ...Object.values(ASSETS.fishSprites).map(f => f.sheet),
   ...Object.values(SOUNDS)
 ].filter(Boolean); // 過濾掉空白項目
@@ -2346,11 +2547,11 @@ uniqueAssets.forEach(url => {
   if (url.endsWith('.mp3') || url.endsWith('.wav')) {
     const audio = new Audio();
     audio.oncanplaythrough = updateProgress;
-    audio.onerror = updateProgress;
+    audio.onerror = updateProgress; // 若找不到檔案也視為通過，避免卡死
     audio.src = url;
     audio.load();
   } else if (url.endsWith('.webm') || url.endsWith('.mp4')) {
-    updateProgress(); // iOS 不預載影片，直接算通過
+    updateProgress(); // iOS/桌機均不阻塞等待影片，直接算通過
   } else {
     const img = new Image();
     img.onload = updateProgress;
@@ -2367,7 +2568,6 @@ startBtn.addEventListener('click', async () => {
     SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm
   ]);
   AudioEngine.playBGM(SOUNDS.bgm);
-
   // 0. 請求全螢幕 (跨瀏覽器相容寫法)
   const docElm = document.documentElement;
   if (docElm.requestFullscreen) {
