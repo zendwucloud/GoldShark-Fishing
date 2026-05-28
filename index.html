@@ -662,8 +662,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Home 返回按鈕 (傳遞訊號給大廳，之後整合平台會用到)
     document.getElementById('btn-menu-home').addEventListener('click', () => {
-        if (window.parent) {
-            window.parent.postMessage({ type: 'exitGame' }, '*');
+        if (window.parent !== window) { // 確保是在 iframe 內部運行
+            window.parent.postMessage('closeGame', '*'); // 改發送大廳預期的字串
         } else {
             window.location.reload();
         }
@@ -705,26 +705,61 @@ const ASSETS = {
 
   // ★ 多Boss版：bossList 陣列
   bossList: [
-    { name: '大鯊魚王', stageMin: 1, stageMax: 2, duration: 15,
-      sheet: '大鯊魚.webp', frames: 100, cols: 10,
-      displayW: 800, displayH: 449, bgMode: 'none',
+    { name: '大鯊魚', stageMin: 1, stageMax: 1, duration: 30,
+      sheet: '大鯊魚.webp', frames: 140, cols: 10,
+      displayW: 600, displayH: 400, bgMode: 'none',
       hp: 750, mult: 500, size: 200,
       pathType: 'hover', hoverIntensity: 8, enterFrom: 'left' },
-    { name: '克拉肯', stageMin: 3, stageMax: 4, duration: 30,
+    { name: '大鯊魚', stageMin: 2, stageMax: 2, duration: 30,
+      sheet: '大鯊魚.webp', frames: 140, cols: 10,
+      displayW: 600, displayH: 400, bgMode: 'none',
+      hp: 1500, mult: 500, size: 200,
+      pathType: 'hover', hoverIntensity: 8, enterFrom: 'right' },
+    { name: '克拉肯', stageMin: 3, stageMax: 3, duration: 45,
       sheet: '克拉肯.webp', frames: 40, cols: 10,
-      displayW: 800, displayH: 449, bgMode: 'none',
-      hp: 750, mult: 500, size: 200,
-      pathType: 'sine', sineAmp: 27, sineFreq: 0.0008, enterFrom: 'right' },
-    { name: '紫晶蟹', stageMin: 5, stageMax: 6, duration: 15,
+      displayW: 750, displayH: 650, bgMode: 'none',
+      hp: 12500, mult: 500, size: 200,
+      pathType: 'sine', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+    { name: '克拉肯', stageMin: 4, stageMax: 4, duration: 45,
+      sheet: '克拉肯.webp', frames: 40, cols: 10,
+      displayW: 750, displayH: 650, bgMode: 'none',
+      hp: 25000, mult: 500, size: 200,
+      pathType: 'sine', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+    { name: '紫晶蟹', stageMin: 5, stageMax: 5, duration: 60,
       sheet: '紫晶蟹.webp', frames: 20, cols: 10,
-      displayW: 800, displayH: 449, bgMode: 'none',
-      hp: 750, mult: 500, size: 200,
+      displayW: 750, displayH: 630, bgMode: 'none',
+      hp: 60000, mult: 500, size: 200,
       pathType: 'straight', enterFrom: 'left' },
+    { name: '紫晶蟹', stageMin: 6, stageMax: 6, duration: 60,
+      sheet: '紫晶蟹.webp', frames: 20, cols: 10,
+      displayW: 750, displayH: 630, bgMode: 'none',
+      hp: 120000, mult: 500, size: 200,
+      pathType: 'straight', enterFrom: 'left' },
+    { name: '翡翠龍', stageMin: 7, stageMax: 7, duration: 60,
+      sheet: '紫晶蟹.webp', frames: 20, cols: 10,
+      displayW: 750, displayH: 630, bgMode: 'none',
+      hp: 150000, mult: 500, size: 200,
+      pathType: 'circle', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+    { name: '翡翠龍', stageMin: 8, stageMax: 8, duration: 60,
+      sheet: '紫晶蟹.webp', frames: 20, cols: 10,
+      displayW: 750, displayH: 630, bgMode: 'none',
+      hp: 175000, mult: 500, size: 200,
+      pathType: 'circle', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+    { name: '黃金鯊', stageMin: 9, stageMax: 9, duration: 60,
+      sheet: '大鯊魚.webp', frames: 140, cols: 10,
+      displayW: 800, displayH: 460, bgMode: 'none',
+      hp: 200000, mult: 500, size: 200,
+      pathType: 'figure8', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+    { name: '黃金鯊', stageMin: 10, stageMax: 10, duration: 60,
+      sheet: '大鯊魚.webp', frames: 140, cols: 10,
+      displayW: 800, displayH: 460, bgMode: 'none',
+      hp: 225000, mult: 500, size: 200,
+      pathType: 'figure8', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
   ],
 
   // 向後相容（指向第一隻Boss）
-  boss: { sheet: '大鯊魚.webp', frames: 100, cols: 10,
-    displayW: 800, displayH: 449, bgMode: 'none',
+  boss: { sheet: '大鯊魚.webp', frames: 140, cols: 10,
+    displayW: 600, displayH: 400, bgMode: 'none',
     hp: 750, mult: 500, size: 200, },
 
   fishSprites: {
@@ -797,11 +832,11 @@ let comboCount     = 0;
 let comboTimer     = 0; 
 
 // ★ 關卡與 Boss 漸進獎勵變數
-let bossLevel       = 0;
 const STAGE_GOALS   = [5000, 10000, 20000, 40000, 80000, 160000]; 
 const STAGE_REWARDS = [1500, 3000, 6000, 12000, 24000, 48000];   
-const STAGE_BOSS_HP = [375, 750, 1500, 3000, 6000, 12000];
-const STAGE_BOSS_TIME = [12, 15, 20, 25, 30, 40];
+
+// 💡 關鍵修正：補回被誤刪的當前關卡核心變數
+let bossLevel      = 0; 
 
 let betAmount      = 10;
 let autoFire       = false;
@@ -961,9 +996,16 @@ const FISH_TYPES = [
 
 // ★ Boss 關卡對應表（Manager 自動生成）
 const BOSS_LIST_CONFIG = [
-  { idx:0, name:'大鯊魚王', stageMin:1, stageMax:2, duration:15 },
-  { idx:1, name:'克拉肯', stageMin:3, stageMax:4, duration:30 },
-  { idx:2, name:'紫晶蟹', stageMin:5, stageMax:6, duration:15 },
+  { idx:0, name:'大鯊魚', stageMin:1, stageMax:1, duration:30 },
+  { idx:1, name:'大鯊魚', stageMin:2, stageMax:2, duration:30 },
+  { idx:2, name:'克拉肯', stageMin:3, stageMax:3, duration:45 },
+  { idx:3, name:'克拉肯', stageMin:4, stageMax:4, duration:45 },
+  { idx:4, name:'紫晶蟹', stageMin:5, stageMax:5, duration:60 },
+  { idx:5, name:'紫晶蟹', stageMin:6, stageMax:6, duration:60 },
+  { idx:6, name:'翡翠龍', stageMin:7, stageMax:7, duration:60 },
+  { idx:7, name:'翡翠龍', stageMin:8, stageMax:8, duration:60 },
+  { idx:8, name:'黃金鯊', stageMin:9, stageMax:9, duration:60 },
+  { idx:9, name:'黃金鯊', stageMin:10, stageMax:10, duration:60 },
 ];
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [], ripples = [];
@@ -1151,20 +1193,18 @@ function triggerBoss(){
   // ★ 多Boss版：根據當前關卡取得對應的 Boss 定義
   _activeBossDef = getBossDefForLevel(bossLevel);
 
-  // HP：優先讀 bossDef.hp，沒有則 fallback 到 STAGE_BOSS_HP 陣列
-  let currentMaxHp = _activeBossDef.hp || STAGE_BOSS_HP[bossLevel];
-  if (!currentMaxHp) currentMaxHp = 12000 * Math.pow(2, bossLevel - 5);
-
-  // 持續時間：優先讀 bossDef.duration，沒有則 fallback 到 STAGE_BOSS_TIME 陣列
-  let currentLimit = _activeBossDef.duration || STAGE_BOSS_TIME[bossLevel] || 45;
+  // 🔥 完美綁定編輯器：直接讀取該 Boss 在素材管理器定義的 hp 與 duration
+  let currentMaxHp = _activeBossDef.hp || 750;
+  let currentLimit = _activeBossDef.duration || 15;
 
   boss.state = 'entering'; 
   boss.maxHp = currentMaxHp; 
   boss.hp = currentMaxHp;    
   boss.x = -BOSS_DW / 2; boss.y = H / 2; 
   boss.enterTimer = BOSS_ENTER_DURATION; 
-  bossTimeLeft = currentLimit; 
+  bossTimeLeft = currentLimit; // 倒數計時完全採用編輯器設定
   bossTimerActive = false; 
+  
   // ★ 效能優化：回收現有魚到 pool
   for(let i = 0; i < fishes.length; i++) fishPool.push(fishes[i]);
   fishes.length = 0;
