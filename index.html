@@ -1445,23 +1445,50 @@ function settleBossResult(killedInTime){
   if (killedInTime) bossLevel++; 
 }
 
+// ════════════════════════════════════════════
+//  Boss 狀態機與進場拆分 (警報期 -> 正式進場)
+// ════════════════════════════════════════════
+
 function triggerBoss(){
   if(boss.state !== 'idle') return;
   settleNormalScore();
-  AudioEngine.play(SOUNDS.boss, 1.0);
+  AudioEngine.play(SOUNDS.boss, 1.0); // 播放警報聲
 
+  boss.state = 'warning';
+  boss.warningTimer = 3.0; // ★ 3秒的警報逃跑期
+
+  // 預先抓取 Boss 資訊，顯示警告文字
   _activeBossDef = getBossDefForLevel(bossLevel);
+  const bossName = _activeBossDef.name || '鯊魚王';
+  const hpLabel = _domCache.bossHpLabel;
+  if (hpLabel) hpLabel.textContent = `⚠ BOSS ${bossName} Lv.${bossLevel + 1} ⚠`;
+
+  // ★ 顯示紅框閃爍與警告文字 (血條先不亮，保留神祕感)
+  if(_domCache.bossAlert) _domCache.bossAlert.classList.add('show');
+  if(_domCache.bossTitle) _domCache.bossTitle.classList.add('show');
+
+  // ★ 重頭戲：讓畫面上的魚群「恐慌加速逃跑」
+  for (let f of fishes) {
+    f.pathType = 'straight'; // 強制解除所有波浪或弧線，改成直線逃命
+    const panicMult = rand(5, 8); // 瞬間加速 5~8 倍
+    f.vx *= panicMult;
+    f.vy *= panicMult;
+  }
+}
+
+// ★ 3 秒後真正執行進場初始化的函式
+function startBossEnter() {
   let currentMaxHp = _activeBossDef.hp || 750;
   let currentLimit = _activeBossDef.duration || 15;
 
-  boss.state = 'entering'; 
-  boss.maxHp = currentMaxHp; 
-  boss.hp = currentMaxHp;    
+  boss.state = 'entering';
+  boss.maxHp = currentMaxHp;
+  boss.hp = currentMaxHp;
 
   // ★ 1. 讀取素材編輯器設定的進場方向 (預設為 left)
   const enterSide = _activeBossDef.enterFrom || 'left';
   const startDir = (enterSide === 'right') ? -1 : 1;
-  
+
   // ── Hover 動態巡迴初始化 ──
   boss.hoverPhase = 'move';
   boss.hoverDirection = startDir; 
@@ -1469,9 +1496,7 @@ function triggerBoss(){
   boss.hoverTargetY = rand(150, H - 150);
   boss.hoverTargetX = startDir === 1 ? rand(300, W/2 + 100) : rand(W/2 - 100, W - 300);
 
-  // ==========================================
-  // ★ 補回被遺忘的 Sine (克拉肯：波浪飄移) 初始化 ──
-  // ==========================================
+  // ── Sine (克拉肯：波浪飄移) 初始化 ──
   boss.sinePhase = 'move';
   boss.sineDirection = startDir; 
   boss.sineTimer = 0;
@@ -1492,9 +1517,9 @@ function triggerBoss(){
   else if (boss.circlePattern === 2) { boss.circleAngle = Math.PI; boss.circleCy = H + 300; boss.circleDir = 1; }
   else { boss.circleAngle = Math.PI * 2; boss.circleCy = H + 300; boss.circleDir = -1; }
 
-  // ★ 新增：Figure8 (黃金鯊：四角α型深淵迴旋) 初始化 ──
+  // ── Figure8 (黃金鯊：四角α型深淵迴旋) 初始化 ──
   boss.figurePhase = 'move';
-  boss.figurePattern = Math.floor(Math.random() * 4); // 0:左上, 1:右上, 2:左下, 3:右下
+  boss.figurePattern = Math.floor(Math.random() * 4); 
   boss.figureTime = -1.25; 
   boss.angle = 0; 
 
@@ -1523,15 +1548,11 @@ function triggerBoss(){
   bossTimeLeft = currentLimit; 
   bossTimerActive = false; 
   
+  // 防呆：強制清空畫面上可能卡住的殘留小魚
   for(let i = 0; i < fishes.length; i++) fishPool.push(fishes[i]);
   fishes.length = 0;
   
-  const bossName = _activeBossDef.name || '鯊魚王';
-  const hpLabel = _domCache.bossHpLabel;
-  if (hpLabel) hpLabel.textContent = `⚠ BOSS ${bossName} Lv.${bossLevel + 1} ⚠`;
-
-  if(_domCache.bossTitle) _domCache.bossTitle.classList.add('show'); 
-  showBossHpBar(); 
+  showBossHpBar(); // 這裡才正式亮出血條
   updateBossHpBar();
   bossFrame = 0; bossFrameTimer = 0;
   setTimeout(()=>{ 
@@ -1547,7 +1568,8 @@ function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
 // 👇 從這裡開始往下全部複製，替換掉原本的 drawBoss 函式 👇
 function drawBoss(dt){
   const bd = _activeBossDef;
-  if(boss.state === 'idle' || boss.state === 'dead') return;
+  // ★ 新增 boss.state === 'warning'，讓 Boss 在 3 秒警報期間完全隱身
+  if(boss.state === 'idle' || boss.state === 'dead' || boss.state === 'warning') return;
 
   const now = Date.now(); 
   let targetX = boss.x, targetY = boss.y; 
@@ -2919,6 +2941,15 @@ function gameLoop(timestamp){
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05); lastTime = timestamp;
   drawBackground(); updateDrawBubbles(dt);
 
+  // 👇 ★ 新增：處理 Boss 的警報與進場過渡 👇
+  if (boss.state === 'warning') {
+    boss.warningTimer -= dt;
+    if (boss.warningTimer <= 0) {
+        startBossEnter(); // 3秒後，正式啟動 Boss 進場
+    }
+  }
+  // 👆 ★ 新增結束 👆
+
   // ★ 更新 Combo 計時器 (時間到就斷掉 Combo 並隱藏 UI)
   // 加入 boss.state !== 'dying' 的安全鎖，讓結算畫面能保留最後的 Combo 數字
   if (comboTimer > 0 && boss.state !== 'entering' && boss.state !== 'dying') {
@@ -3026,7 +3057,8 @@ function gameLoop(timestamp){
     if(bossTimeLeft <= 0){ bossTimerActive = false; boss.state = 'dying'; boss.enterTimer = 2.5; if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show'); setTimeout(()=> settleBossResult(false), 500); }
   }
 
-  if(boss.state === 'active' || boss.state === 'entering') spawnTimer = 0;
+  // ★ 警報期間也停止生小魚 (只要不是 idle 就停止)
+  if(boss.state !== 'idle') spawnTimer = 0;
 
   // ⚡ 尋找自動射擊的目標 (Boss 絕對優先 + iPhone 極速雷達)
   let target = null;
