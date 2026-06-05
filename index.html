@@ -28,6 +28,19 @@
   .info-content { background: linear-gradient(180deg, #001f3f 0%, #000c18 100%); width: 500px; border-radius: 20px; border: 2px solid #00bbff; padding: 25px; text-align: center; box-shadow: 0 0 30px rgba(0, 187, 255, 0.5); }
   .setting-box { background: linear-gradient(180deg, #002844 0%, #001122 100%); width: 350px; border-radius: 15px; border: 3px solid #00aaff; padding: 25px; text-align: center; box-shadow: 0 0 30px rgba(0, 170, 255, 0.6); }
   
+  /* --- Info Modal Tabs 樣式 (Carnival 風格) --- */
+        .info-tabs { display: flex; justify-content: space-between; border-bottom: 2px solid #8a2be2; margin-bottom: 15px; padding-bottom: 5px; }
+        .tab-btn { background: none; border: none; color: #aaa; font-size: 1.8vh; font-weight: bold; cursor: pointer; padding: 5px 10px; transition: 0.2s; font-family: 'Arial Black', sans-serif; text-shadow: 1px 1px 0 #000; }
+        .tab-btn:hover { color: #fff; text-shadow: 0 0 8px #ff00ff; }
+        .tab-btn.active { color: #ffd700; text-shadow: 0 0 10px #ff8c00; border-bottom: 3px solid #ffd700; margin-bottom: -7px; }
+        
+        .info-body { background: rgba(0, 0, 0, 0.4); border: 1px solid #8a2be2; border-radius: 10px; padding: 12px; text-align: left; height: 50vh; overflow-y: auto; }
+        .info-body::-webkit-scrollbar { width: 8px; }
+        .info-body::-webkit-scrollbar-thumb { background-color: rgba(255, 215, 0, 0.6); border-radius: 10px; }
+        .tab-content { display: none; animation: fadeIn 0.3s; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
   .info-title { font-size: 28px; color: #00e5ff; font-weight: bold; text-shadow: 0 0 10px #000; margin-bottom: 15px; }
   .close-btn { background: linear-gradient(180deg, #00bfff, #0077aa); padding: 10px 40px; border-radius: 50px; font-weight: bold; font-size: 18px; cursor: pointer; color: white; border: 2px solid #88ddff; transition: transform 0.1s; display: inline-block; }
   .close-btn:active { transform: scale(0.95); }
@@ -266,6 +279,9 @@
     font-family: 'Arial', sans-serif; /* ★ 2. 指定字體一致 */
     text-shadow: 0 2px 5px rgba(0,0,0,0.9); /* ★ 3. 套用深色陰影，增加立體感 */
     margin-top: 0px; 
+    display: inline-block;
+    transition: transform 0.1s; 
+    transform-origin: center center;
   }
 
   .score-max { 
@@ -529,15 +545,19 @@
     <div id="info-modal">
         <div class="info-content">
             <div class="info-title">★ 遊戲說明 ★</div>
-            <div style="background: rgba(0,0,0,0.5); border: 1px solid #aaa; border-radius: 10px; padding: 15px; text-align: left; line-height: 1.6;">
-                <p style="color:#ffd700; font-weight:bold; font-size: 20px; margin-bottom: 8px;">基本操作：</p>
-                <p style="color:#fff; font-size: 15px;">1. 點擊畫面任意處即可發射子彈。</p>
-                <p style="color:#fff; font-size: 15px;">2. 擊殺魚隻可獲得對應倍數之金幣。</p>
-                <p style="color:#fff; font-size: 15px;">3. 點擊「自動射擊」可自動鎖定目標。</p>
-                <p style="color:#00ffff; font-weight:bold; font-size: 20px; margin-top: 15px; margin-bottom: 8px;">火力系統：</p>
-                <p style="color:#fff; font-size: 15px;">【雙管重砲】單體高擊殺率，需擊殺 Boss 解鎖。</p>
-                <p style="color:#ff4500; font-size: 15px;">【電漿巨砲】超大範圍轟炸且擊殺率翻倍！</p>
+            
+            <div class="info-tabs">
+                <button class="tab-btn active" data-target="tab-rules">遊戲規則</button>
+                <button class="tab-btn" data-target="tab-features">特色武器</button>
+                <button class="tab-btn" data-target="tab-paytable">魚種賠率</button>
             </div>
+
+            <div class="info-body">
+                <div id="tab-rules" class="tab-content active"><div id="rules-container"></div></div>
+                <div id="tab-features" class="tab-content"><div id="features-container"></div></div>
+                <div id="tab-paytable" class="tab-content"><div id="paytable-container"></div></div>
+            </div>
+
             <div class="close-btn" id="btn-close-info">關閉</div>
         </div>
     </div>
@@ -545,12 +565,23 @@
     <div id="setting-modal">
         <div class="setting-box">
             <div class="info-title" style="font-size: 24px; color:#fff; text-shadow:none;">遊戲設定</div>
-            <div style="color: white; font-weight: bold; font-size: 18px; margin-top: 10px;">音樂/音效</div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="chk-sound" checked>
-                <span class="slider"></span>
-            </label>
-            <br>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 15px 20px 0;">
+                <div style="color: white; font-weight: bold; font-size: 18px;">背景音樂</div>
+                <label class="toggle-switch" style="margin: 0;">
+                    <input type="checkbox" id="chk-bgm" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin: 15px 20px;">
+                <div style="color: white; font-weight: bold; font-size: 18px;">遊戲音效</div>
+                <label class="toggle-switch" style="margin: 0;">
+                    <input type="checkbox" id="chk-sfx" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
             <div class="close-btn" id="btn-close-setting" style="margin-top: 10px;">確定</div>
         </div>
     </div>
@@ -639,6 +670,8 @@
 // 🎯 老虎機版選單控制系統
 document.addEventListener('DOMContentLoaded', () => {
     const menuModal = document.getElementById('menu-modal');
+
+    generatePaytable(); // 初始化分頁面板資料
     
     // 開關底部滑動選單
     document.getElementById('btn-phone').addEventListener('click', () => menuModal.classList.add('active'));
@@ -669,21 +702,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 靜音 Toggle 開關邏輯
-    const chkSound = document.getElementById('chk-sound');
-    chkSound.addEventListener('change', (e) => {
-        AudioEngine.sfxEnabled = e.target.checked;
-        // Web Audio API 路徑
+   // ★ 1. 背景音樂 Toggle 開關邏輯
+    const chkBgm = document.getElementById('chk-bgm');
+    chkBgm.addEventListener('change', (e) => {
+        AudioEngine.bgmEnabled = e.target.checked;
+        // Web Audio API 路徑：即時調整音量
         if (AudioEngine.bgmGain) {
             AudioEngine.bgmGain.gain.value = e.target.checked ? 0.4 : 0;
         }
-        // Audio Pool fallback 路徑
+        // Audio Pool fallback 路徑：即時靜音
         if (AudioEngine._bgmAudio) {
             AudioEngine._bgmAudio.muted = !e.target.checked;
         }
     });
-});
 
+    // ★ 2. 遊戲音效 Toggle 開關邏輯
+    const chkSfx = document.getElementById('chk-sfx');
+    chkSfx.addEventListener('change', (e) => {
+        AudioEngine.sfxEnabled = e.target.checked;
+    });
+});
 // ════════════════════════════════════════════
 //  ★ iOS 效能偵測
 // ════════════════════════════════════════════
@@ -706,74 +744,82 @@ const ASSETS = {
   // ★ 多Boss版：bossList 陣列
   bossList: [
     { name: '大鯊魚', stageMin: 1, stageMax: 1, duration: 30,
-      sheet: '大鯊魚.webp', frames: 140, cols: 10,
+      sheet: '大鯊魚.webp', frames: 100, cols: 10,
       displayW: 600, displayH: 400, bgMode: 'none',
-      hp: 750, mult: 500, size: 200,
+      hp: 1000, mult: 500, size: 150,
       pathType: 'hover', hoverIntensity: 8, enterFrom: 'left' },
     { name: '大鯊魚', stageMin: 2, stageMax: 2, duration: 30,
-      sheet: '大鯊魚.webp', frames: 140, cols: 10,
+      sheet: '大鯊魚.webp', frames: 100, cols: 10,
       displayW: 600, displayH: 400, bgMode: 'none',
-      hp: 1500, mult: 500, size: 200,
+      hp: 1500, mult: 500, size: 150,
       pathType: 'hover', hoverIntensity: 8, enterFrom: 'right' },
     { name: '克拉肯', stageMin: 3, stageMax: 3, duration: 45,
       sheet: '克拉肯.webp', frames: 40, cols: 10,
       displayW: 750, displayH: 650, bgMode: 'none',
-      hp: 12500, mult: 500, size: 200,
-      pathType: 'sine', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+      hp: 15000, mult: 500, size: 180,
+      pathType: 'sine', sineAmp: 100, sineFreq: 0.01, enterFrom: 'left' },
     { name: '克拉肯', stageMin: 4, stageMax: 4, duration: 45,
       sheet: '克拉肯.webp', frames: 40, cols: 10,
       displayW: 750, displayH: 650, bgMode: 'none',
-      hp: 25000, mult: 500, size: 200,
-      pathType: 'sine', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+      hp: 20000, mult: 500, size: 180,
+      pathType: 'sine', sineAmp: 200, sineFreq: 0.01, enterFrom: 'left' },
     { name: '紫晶蟹', stageMin: 5, stageMax: 5, duration: 60,
       sheet: '紫晶蟹.webp', frames: 20, cols: 10,
       displayW: 750, displayH: 630, bgMode: 'none',
-      hp: 60000, mult: 500, size: 200,
-      pathType: 'straight', enterFrom: 'left' },
+      hp: 23000, mult: 500, size: 200,
+      pathType: 'straight', sineAmp: 25, sineFreq: 0.0005, enterFrom: 'left' },
     { name: '紫晶蟹', stageMin: 6, stageMax: 6, duration: 60,
       sheet: '紫晶蟹.webp', frames: 20, cols: 10,
       displayW: 750, displayH: 630, bgMode: 'none',
-      hp: 120000, mult: 500, size: 200,
-      pathType: 'straight', enterFrom: 'left' },
+      hp: 38000, mult: 500, size: 200,
+      pathType: 'straight', sineAmp: 25, sineFreq: 0.001, enterFrom: 'left' },
     { name: '翡翠龍', stageMin: 7, stageMax: 7, duration: 60,
-      sheet: '紫晶蟹.webp', frames: 20, cols: 10,
-      displayW: 750, displayH: 630, bgMode: 'none',
-      hp: 150000, mult: 500, size: 200,
-      pathType: 'circle', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+      sheet: '翡翠龍.webp', frames: 40, cols: 10,
+      displayW: 1000, displayH: 582, bgMode: 'none',
+      hp: 50000, mult: 500, size: 200,
+      pathType: 'figure8', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
     { name: '翡翠龍', stageMin: 8, stageMax: 8, duration: 60,
-      sheet: '紫晶蟹.webp', frames: 20, cols: 10,
-      displayW: 750, displayH: 630, bgMode: 'none',
-      hp: 175000, mult: 500, size: 200,
-      pathType: 'circle', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+      sheet: '翡翠龍.webp', frames: 40, cols: 10,
+      displayW: 1000, displayH: 582, bgMode: 'none',
+      hp: 60000, mult: 500, size: 200,
+      pathType: 'figure8', sineAmp: 25, sineFreq: 0.0012, enterFrom: 'left' },
     { name: '黃金鯊', stageMin: 9, stageMax: 9, duration: 60,
-      sheet: '大鯊魚.webp', frames: 140, cols: 10,
-      displayW: 800, displayH: 460, bgMode: 'none',
-      hp: 200000, mult: 500, size: 200,
-      pathType: 'figure8', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+      sheet: '黃金鯊.webp', frames: 80, cols: 10,
+      displayW: 600, displayH: 430, bgMode: 'none',
+      hp: 75000, mult: 500, size: 200,
+      pathType: 'circle', sineAmp: 25, sineFreq: 0.0016, enterFrom: 'left' },
     { name: '黃金鯊', stageMin: 10, stageMax: 10, duration: 60,
-      sheet: '大鯊魚.webp', frames: 140, cols: 10,
-      displayW: 800, displayH: 460, bgMode: 'none',
-      hp: 225000, mult: 500, size: 200,
-      pathType: 'figure8', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
+      sheet: '黃金鯊.webp', frames: 80, cols: 10,
+      displayW: 600, displayH: 430, bgMode: 'none',
+      hp: 850000, mult: 500, size: 200,
+      pathType: 'circle', sineAmp: 40, sineFreq: 0.0032, enterFrom: 'left' },
+    { name: '黃金鯊', stageMin: 11, stageMax: 11, duration: 60,
+      sheet: '黃金鯊.webp', frames: 80, cols: 10,
+      displayW: 800, displayH: 449, bgMode: 'none',
+      hp: 1000000, mult: 500, size: 200,
+      pathType: 'circle', sineAmp: 25, sineFreq: 0.0064, enterFrom: 'left' },
   ],
 
   // 向後相容（指向第一隻Boss）
-  boss: { sheet: '大鯊魚.webp', frames: 140, cols: 10,
+  boss: { sheet: '大鯊魚.webp', frames: 100, cols: 10,
     displayW: 600, displayH: 400, bgMode: 'none',
-    hp: 750, mult: 500, size: 200, },
+    hp: 1000, mult: 500, size: 150, },
 
   fishSprites: {
-    2: { sheet: '小魚B.webp', frames: 96, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'arc', sineAmp: 25, formation: 'single', formationCount: 1, spawnDir: 'all' },  // 小魚B
+    2: { sheet: '小魚B.webp', frames: 76, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'arc', sineAmp: 25, formation: 'single', formationCount: 1, spawnDir: 'all' },  // 小魚B
     3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line' },  // 飛魚
-    4: { sheet: '小丑魚.webp', frames: 145, cols: 5, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
+    4: { sheet: '小丑魚.webp', frames: 76, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
     5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 河豚
-    6: { sheet: '龍蝦.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 龍蝦
+    6: { sheet: '龍蝦.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 龍蝦
     8: { sheet: '章魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
-    9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
-    10: { sheet: '海龜.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
+    9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
+    10: { sheet: '海龜.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
     11: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
     12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, pathType: 'arc', spawnDir: 'horizontal' },  // 錘頭鯊
     13: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
+    14: { sheet: '炸彈蟹.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 炸彈蟹
+    15: { sheet: '鑽頭蟹.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 鑽頭蟹
+    16: { sheet: '轉輪蟹.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 轉輪蟹
   }
 };
 
@@ -867,7 +913,8 @@ const SOUNDS = {
 const AudioEngine = {
   ctx: null,
   buffers: {},
-  sfxEnabled: true,
+  bgmEnabled: true, // ★ 新增：獨立的音樂開關狀態
+  sfxEnabled: true, // ★ 獨立的音效開關狀態
   bgmSource: null,
   bgmGain: null,
   // ★ Audio Pool fallback（file:/// 協議下 fetch 被 CORS 封鎖時使用）
@@ -915,9 +962,9 @@ const AudioEngine = {
     }
   },
 
-  // 開槍時呼叫
+  // 開槍時呼叫 (僅受 sfxEnabled 控制)
   play(src, volume = 1.0) {
-    if (!this.sfxEnabled) return;
+    if (!this.sfxEnabled) return; // ★ 檢查音效開關
     // ★ Web Audio API 路徑
     if (!this._usePool && this.ctx && this.buffers[src]) {
       if (this.ctx.state === 'suspended') this.ctx.resume();
@@ -943,7 +990,7 @@ const AudioEngine = {
     sound.play().catch(() => {});
   },
 
-  // 播放循環背景音樂
+  // 播放循環背景音樂 (僅受 bgmEnabled 控制)
   playBGM(src, volume = 0.4) {
     // ★ Web Audio API 路徑
     if (!this._usePool && this.ctx && this.buffers[src]) {
@@ -952,7 +999,7 @@ const AudioEngine = {
       source.buffer = this.buffers[src];
       source.loop = true;
       const gainNode = this.ctx.createGain();
-      gainNode.gain.value = this.sfxEnabled ? volume : 0;
+      gainNode.gain.value = this.bgmEnabled ? volume : 0; // ★ 改用 bgmEnabled 判斷
       source.connect(gainNode);
       gainNode.connect(this.ctx.destination);
       source.start(0);
@@ -966,9 +1013,9 @@ const AudioEngine = {
       this._bgmAudio.loop = true;
       this._bgmAudio.volume = volume;
     }
-    this._bgmAudio.muted = !this.sfxEnabled;
+    this._bgmAudio.muted = !this.bgmEnabled; // ★ 改用 bgmEnabled 判斷
     this._bgmAudio.play().catch(() => {});
-    this._bgmAudio.muted = !this.sfxEnabled;
+    this._bgmAudio.muted = !this.bgmEnabled; // ★ 改用 bgmEnabled 判斷
   }
 };
 
@@ -987,11 +1034,14 @@ const FISH_TYPES = [
   { id:5, name:'河豚', color:'#bb88ff', glowColor:'#8844ff', size:65, speed:1.2, hp:1, mult:8, freq:30 },
   { id:6, name:'龍蝦', color:'#ff5544', glowColor:'#cc2200', size:30, speed:1.1, hp:1, mult:10, freq:30 },
   { id:8, name:'章魚', color:'#cc44aa', glowColor:'#aa0088', size:100, speed:1.5, hp:1, mult:12, freq:30 },
-  { id:9, name:'燈籠魚', color:'#44aa66', glowColor:'#228844', size:25, speed:2, hp:1, mult:12, freq:25 },
+  { id:9, name:'燈籠魚', color:'#44aa66', glowColor:'#228844', size:60, speed:2, hp:1, mult:12, freq:25 },
   { id:10, name:'海龜', color:'#ff9977', glowColor:'#ff6644', size:30, speed:1, hp:1, mult:15, freq:25 },
   { id:11, name:'鯊魚', color:'#88ddff', glowColor:'#44aaff', size:50, speed:3, hp:1, mult:20, freq:20 },
   { id:12, name:'錘頭鯊', color:'#ffcc44', glowColor:'#ffaa00', size:30, speed:3.2, hp:1, mult:20, freq:20 },
   { id:13, name:'魟魚', color:'#bb88ff', glowColor:'#8844ff', size:30, speed:2.5, hp:1, mult:25, freq:15 },
+  { id:14, name:'炸彈蟹', color:'#ff5544', glowColor:'#cc2200', size:150, speed:1.5, hp:1, mult:15, freq:10 },
+  { id:15, name:'鑽頭蟹', color:'#cc44aa', glowColor:'#aa0088', size:150, speed:1.5, hp:1, mult:15, freq:10 },
+  { id:16, name:'轉輪蟹', color:'#44aa66', glowColor:'#228844', size:150, speed:1.5, hp:1, mult:15, freq:10 },
 ];
 
 // ★ Boss 關卡對應表（Manager 自動生成）
@@ -1006,7 +1056,200 @@ const BOSS_LIST_CONFIG = [
   { idx:7, name:'翡翠龍', stageMin:8, stageMax:8, duration:60 },
   { idx:8, name:'黃金鯊', stageMin:9, stageMax:9, duration:60 },
   { idx:9, name:'黃金鯊', stageMin:10, stageMax:10, duration:60 },
+  { idx:10, name:'黃金鯊', stageMin:11, stageMax:11, duration:60 },
 ];
+
+// ════════════════════════════════════════════
+//  動態生成遊戲說明與賠率表 (內建動畫引擎完美版)
+// ════════════════════════════════════════════
+function generatePaytable() {
+    const ptContainer = document.getElementById('paytable-container');
+    const ftContainer = document.getElementById('features-container');
+    const rlContainer = document.getElementById('rules-container');
+
+    if (!ptContainer || !ftContainer || !rlContainer) return;
+
+    ptContainer.innerHTML = '';
+
+    FISH_TYPES.forEach(fish => {
+        const fishId = parseInt(fish.id, 10);
+        const sprCfg = ASSETS.fishSprites[fishId] || {};
+        const imgSrc = sprCfg.sheet ? sprCfg.sheet : ''; 
+        
+        // 抓取欄數、總幀數，並計算列數
+        const cols = sprCfg.cols || 1; 
+        const frames = sprCfg.frames || 1;
+        const rows = Math.ceil(frames / cols);
+        
+        const spriteId = `paytable-anim-${fishId}`;
+
+        ptContainer.innerHTML += `
+            <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00bbff; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 70px; height: 70px; background: rgba(0,0,0,0.5); border: 2px solid ${fish.color}; border-radius: 6px; display: flex; justify-content: center; align-items: center; overflow: hidden; box-shadow: inset 0 0 8px ${fish.glowColor};">
+                        
+                        <div id="${spriteId}" class="paytable-sprite" 
+                             data-cols="${cols}" 
+                             data-rows="${rows}" 
+                             data-frames="${frames}" 
+                             data-current-frame="0"
+                             style="
+                                width: 100%; 
+                                height: 100%; 
+                                background-image: url('${imgSrc}'); 
+                                background-size: ${cols * 100}% ${rows * 100}%; 
+                                background-position: 0% 0%; 
+                                background-repeat: no-repeat; 
+                                filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+                                transform: scale(1.3);
+                             ">
+                        </div>
+                    </div>
+                    <span style="color: ${fish.color}; font-weight: bold; font-size: 20px; text-shadow: 0 0 8px ${fish.glowColor};">${fish.name}</span>
+                </div>
+                <span style="color: #ffd700; font-weight: bold; font-size: 20px; text-shadow: 0 1px 2px #000;">${fish.mult} 倍</span>
+            </div>
+        `;
+    });
+
+    // 2. 寫入特色武器 (砲台) 說明
+    ftContainer.innerHTML = `
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00bbff; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="width: 80px; height: 80px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #00bbff; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 15px; box-shadow: inset 0 0 8px #0088cc;">
+                <img src="砲座.png" style="position: absolute; bottom: 8px; width: 60%; opacity: 0.7;">
+                <img src="砲管A.png" style="position: absolute; bottom: 25px; width: 35%; z-index: 1;">
+            </div>
+            <div style="flex-grow: 1; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px;">
+                    <span style="color:#00bbff; font-weight:bold; font-size: 18px; text-shadow: 0 0 8px #00bbff;">【一般砲塔】</span>
+                    <span style="color:#ffd700; font-weight:bold; font-size: 15px;">倍率：1 ~ 15 倍</span>
+                </div>
+                <div style="color:#fff; font-size: 14px; line-height: 1.5;">
+                    <span style="color:#aaa;">解鎖條件：</span>無 (預設開啟)<br>
+                    <span style="color:#aaa;">火力效果：</span>基礎單發電漿炮，消耗較低，適合用來清理小型魚群累積資本。
+                </div>
+            </div>
+        </div>
+
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00ffff; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="width: 80px; height: 80px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 15px; box-shadow: inset 0 0 8px #00cccc;">
+                <img src="砲座.png" style="position: absolute; bottom: 8px; width: 60%; opacity: 0.7;">
+                <img src="砲管B.png" style="position: absolute; bottom: 25px; width: 45%; z-index: 1;">
+            </div>
+            <div style="flex-grow: 1; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px;">
+                    <span style="color:#00ffff; font-weight:bold; font-size: 18px; text-shadow: 0 0 8px #00ffff;">【雙管重砲】</span>
+                    <span style="color:#ffd700; font-weight:bold; font-size: 15px;">倍率：20 ~ 75 倍</span>
+                </div>
+                <div style="color:#fff; font-size: 14px; line-height: 1.5;">
+                    <span style="color:#aaa;">解鎖條件：</span>擊敗第 2 關 Boss<br>
+                    <span style="color:#aaa;">火力效果：</span>單發升級為雙重平行電漿炮，命中判定範圍變寬，擊殺率更為穩定。
+                </div>
+            </div>
+        </div>
+
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #ff4500; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 12px;">
+            <div style="width: 80px; height: 80px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #ff4500; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 15px; box-shadow: inset 0 0 10px #ff2200;">
+                <img src="砲座.png" style="position: absolute; bottom: 8px; width: 60%; opacity: 0.7;">
+                <img src="砲管C.png" style="position: absolute; bottom: 25px; width: 55%; z-index: 1; filter: drop-shadow(0 0 5px #00e5ff) brightness(1.2);">
+            </div>
+            <div style="flex-grow: 1; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px;">
+                    <span style="color:#ff4500; font-weight:bold; font-size: 18px; text-shadow: 0 0 8px #ff4500;">【電漿巨砲】</span>
+                    <span style="color:#ffd700; font-weight:bold; font-size: 15px;">倍率：100 ~ 500 倍</span>
+                </div>
+                <div style="color:#fff; font-size: 14px; line-height: 1.5;">
+                    <span style="color:#aaa;">解鎖條件：</span>擊敗第 4 關 Boss<br>
+                    <span style="color:#aaa;">火力效果：</span>發射極高能電漿彈，命中引發 180px 範圍電漿爆炸，單體致死率直接翻 2 倍！
+                </div>
+            </div>
+        </div>
+    `;
+
+    // 3. 寫入機制規則與操作說明
+    rlContainer.innerHTML = `
+        <div style="padding: 12px; background: rgba(0,0,0,0.5); border-radius: 8px; border-left: 4px solid #ffd700; margin-bottom: 12px; text-align: left;">
+            <p style="color:#ffd700; font-weight:bold; font-size: 18px; margin-bottom: 8px; text-shadow: 0 0 5px #ffd700;">【基礎操作】</p>
+            <ul style="color:#fff; font-size: 14px; line-height: 1.6; padding-left: 20px; margin: 0;">
+                <li><strong>瞄準與射擊：</strong>滑動游標即可控制畫面上的<span style="color:#ffcc00;">黃色準星</span>，點擊滑鼠<span style="color:#00e5ff;">左鍵</span>即可朝目標精準發射電漿炮。</li>
+                <li><strong>火力調整：</strong>點擊畫面正下方的【+】【-】按鈕可切換砲口倍數，倍數越高，擊殺目標後獲得的金幣回饋越豐厚。</li>
+                <li><strong>自動射擊：</strong>點擊右下方按鈕，系統將接管準星，自動鎖定畫面中最近的魚群連續開火。</li>
+            </ul>
+        </div>
+
+        <div style="padding: 12px; background: rgba(0,0,0,0.5); border-radius: 8px; border-left: 4px solid #00ffcc; margin-bottom: 12px; text-align: left;">
+            <p style="color:#00ffcc; font-weight:bold; font-size: 18px; margin-bottom: 8px; text-shadow: 0 0 5px #00ffcc;">【機率與捕獲機制】</p>
+            <ul style="color:#fff; font-size: 14px; line-height: 1.6; padding-left: 20px; margin: 0;">
+                <li>每一發子彈接觸到魚隻時，皆會進行獨立的捕獲判定。</li>
+                <li><strong>高風險高報酬：</strong>目標魚種的<span style="color:#ff4500;">賠率越高，基礎致死率（捕獲成功率）就越低</span>。面對大型魚種時，建議切換高級砲台以穩定輸出。</li>
+                <li><strong>連擊系統 (Combo)：</strong>連續擊殺魚隻可累積 Combo 數，每一擊殺增加 2% 獎勵，最高可獲得 <span style="color:#ffcc00; font-weight:bold;">2.0 倍 (200%)</span> 的極限分數加成！</li>
+            </ul>
+        </div>
+
+        <div style="padding: 12px; background: rgba(0,0,0,0.5); border-radius: 8px; border-left: 4px solid #ff3300; margin-bottom: 12px; text-align: left;">
+            <p style="color:#ff3300; font-weight:bold; font-size: 18px; margin-bottom: 8px; text-shadow: 0 0 5px #ff3300;">【積分與 BOSS 決戰】</p>
+            <ul style="color:#fff; font-size: 14px; line-height: 1.6; padding-left: 20px; margin: 0;">
+                <li><strong>能量蓄積：</strong>擊殺魚隻所獲得的成績，將持續匯聚至右下方的「累積分數」槽，同時將對應金幣存入左下方的餘額中。</li>
+                <li><strong>巨獸降臨：</strong>當累積分數達到當前關卡的目標值時，將立即喚醒區域 BOSS 進行決戰！</li>
+                <li><strong>限時擊殺：</strong>在倒數計時結束前成功擊敗 BOSS，可獲得 <span style="color:#ffcc00; font-weight:bold;">1.5 倍的極限獎金</span>，並解鎖更高階的特色武器。</li>
+                <li><strong>傷害結算：</strong>若時間耗盡仍未能擊敗 BOSS，系統將結算您對 BOSS <span style="color:#00e5ff;">造成的總傷害百分比</span>，發放對應的安慰獎金幣。</li>
+                <li><strong>狂熱維持：</strong>攻擊 BOSS 的每一發子彈也會列入 Combo 計算，請盡情維持火力熱度！</li>
+            </ul>
+        </div>
+    `;
+
+    // 4. 綁定 Tab 切換事件
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            tabContents.forEach(c => c.classList.remove('active'));
+            const targetId = btn.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
+
+    // ==========================================
+    // ★ 5. 獨立啟動：賠率表的多列 Sprite 動畫引擎
+    // ==========================================
+    // 先清除舊的計時器，避免重複呼叫 generatePaytable 時產生多個 loop 造成加速
+    if (window.paytableAnimTimer) clearInterval(window.paytableAnimTimer);
+    
+    window.paytableAnimTimer = setInterval(() => {
+        // 【效能保護】只有當 info-modal 打開時才去計算動畫
+        const infoModal = document.getElementById('info-modal');
+        if (!infoModal || !infoModal.classList.contains('active')) return;
+
+        const sprites = document.querySelectorAll('.paytable-sprite');
+        
+        sprites.forEach(el => {
+            const frames = parseInt(el.getAttribute('data-frames'), 10);
+            if (frames <= 1) return; // 單張靜態圖就直接跳過
+
+            const cols = parseInt(el.getAttribute('data-cols'), 10);
+            const rows = parseInt(el.getAttribute('data-rows'), 10);
+            let currentFrame = parseInt(el.getAttribute('data-current-frame'), 10);
+
+            // 推進一幀
+            currentFrame = (currentFrame + 1) % frames;
+            el.setAttribute('data-current-frame', currentFrame);
+
+            // 計算精準的 X 與 Y 軸位置
+            const xIndex = currentFrame % cols;
+            const yIndex = Math.floor(currentFrame / cols);
+
+            const xPos = cols > 1 ? (xIndex / (cols - 1)) * 100 : 0;
+            const yPos = rows > 1 ? (yIndex / (rows - 1)) * 100 : 0;
+
+            // 套用到 inline CSS
+            el.style.backgroundPosition = `${xPos}% ${yPos}%`;
+        });
+    }, 45); // 45ms 刷新率，約等於遊戲內的 22fps
+}
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [], ripples = [];
 let bulletPool = [], particlePool = [], explosionPool = [], plasmaPool = [], floatingTextPool = [], fishPool = [], ripplePool = [];
@@ -1158,17 +1401,34 @@ function settleBossResult(killedInTime){
     rewardCoins = STAGE_REWARDS[bossLevel];
     if (!rewardCoins) rewardCoins = 48000 * Math.pow(2, bossLevel - 5); // ★ 變成 -5
     
-    // 👇 ★ 改變解鎖時機：擊敗第2關(1萬分)解鎖75倍，第4關(4萬分)解鎖500倍
+    // 👇 改變解鎖時機與顯示文字 (包含每一次的倍數升級提示)
     if (bossLevel === 1) { 
-      resultText = "過關大獎！<br><span style='color:#00e5ff; font-size:16px; text-shadow: 0 0 8px #00e5ff;'>✨ 解鎖雙管重砲 (最高75倍) ✨</span>";
+      // 打完第 2 關
+      resultText = "過關大獎！<br><span style='color:#00e5ff; font-size:16px; text-shadow: 0 0 8px #00e5ff;'>✨ 解鎖雙管重砲 (最高 50 倍) ✨</span>";
+    } else if (bossLevel === 2) { 
+      // 打完第 3 關
+      resultText = "過關大獎！<br><span style='color:#00e5ff; font-size:16px; text-shadow: 0 0 8px #00e5ff;'>⚡ 火力升級 (最高 75 倍) ⚡</span>";
     } else if (bossLevel === 3) { 
-      resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>🔥 解鎖電漿巨砲 (最高500倍) 🔥</span>";
+      // 打完第 4 關
+      resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>🔥 解鎖電漿巨砲 (最高 100 倍) 🔥</span>";
+    } else if (bossLevel === 4) { 
+      // 打完第 5 關
+      resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>💥 火力升級 (最高 200 倍) 💥</span>";
+    } else if (bossLevel === 5) { 
+      // 打完第 6 關
+      resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>💥 火力升級 (最高 300 倍) 💥</span>";
+    } else if (bossLevel === 6) { 
+      // 打完第 7 關
+      resultText = "過關大獎！<br><span style='color:#ff3300; font-size:16px; text-shadow: 0 0 8px #ff3300;'>💥 火力升級 (最高 400 倍) 💥</span>";
+    } else if (bossLevel === 7) { 
+      // 打完第 8 關
+      resultText = "過關大獎！<br><span style='color:#ffd700; font-size:16px; text-shadow: 0 0 8px #ff8800;'>🌟 終極火力全開 (最高 500 倍) 🌟</span>";
     } else {
+      // 其他沒有解鎖新倍數的關卡 (如第 1 關，或第 9 關以後)
       resultText = "過關大獎！";
     }
-    
   } else {
-    // ★ 失敗獎金也同步更新公式
+    // ★ 這裡是被誤刪的段落：失敗獎金公式
     const currentGoal = STAGE_GOALS[bossLevel] || (160000 * Math.pow(2, bossLevel - 5));
     rewardCoins = Math.floor(currentGoal * 0.1 * dmgPct);
     resultText = "挑戰失敗 (安慰獎)";
@@ -1190,26 +1450,82 @@ function triggerBoss(){
   settleNormalScore();
   AudioEngine.play(SOUNDS.boss, 1.0);
 
-  // ★ 多Boss版：根據當前關卡取得對應的 Boss 定義
   _activeBossDef = getBossDefForLevel(bossLevel);
-
-  // 🔥 完美綁定編輯器：直接讀取該 Boss 在素材管理器定義的 hp 與 duration
   let currentMaxHp = _activeBossDef.hp || 750;
   let currentLimit = _activeBossDef.duration || 15;
 
   boss.state = 'entering'; 
   boss.maxHp = currentMaxHp; 
   boss.hp = currentMaxHp;    
-  boss.x = -BOSS_DW / 2; boss.y = H / 2; 
+
+  // ★ 1. 讀取素材編輯器設定的進場方向 (預設為 left)
+  const enterSide = _activeBossDef.enterFrom || 'left';
+  const startDir = (enterSide === 'right') ? -1 : 1;
+  
+  // ── Hover 動態巡迴初始化 ──
+  boss.hoverPhase = 'move';
+  boss.hoverDirection = startDir; 
+  boss.hoverTimer = 0;
+  boss.hoverTargetY = rand(150, H - 150);
+  boss.hoverTargetX = startDir === 1 ? rand(300, W/2 + 100) : rand(W/2 - 100, W - 300);
+
+  // ==========================================
+  // ★ 補回被遺忘的 Sine (克拉肯：波浪飄移) 初始化 ──
+  // ==========================================
+  boss.sinePhase = 'move';
+  boss.sineDirection = startDir; 
+  boss.sineTimer = 0;
+  boss.sineBaseY = rand(250, H - 250);
+
+  // ── Straight (直線左右巡邏) 初始化 ──
+  boss.straightPhase = 'enter';
+  boss.straightJourneyDir = startDir; 
+  boss.straightDirection = startDir;  
+  boss.straightTimer = 0;
+  boss.straightTargetY = rand(150, H - 150); 
+
+  // ── Circle (翡翠龍：四角半圓突襲) 初始化 ──
+  boss.circlePhase = 'move';
+  boss.circlePattern = Math.floor(Math.random() * 4);
+  if (boss.circlePattern === 0) { boss.circleAngle = Math.PI; boss.circleCy = -300; boss.circleDir = -1; }
+  else if (boss.circlePattern === 1) { boss.circleAngle = 0; boss.circleCy = -300; boss.circleDir = 1; }
+  else if (boss.circlePattern === 2) { boss.circleAngle = Math.PI; boss.circleCy = H + 300; boss.circleDir = 1; }
+  else { boss.circleAngle = Math.PI * 2; boss.circleCy = H + 300; boss.circleDir = -1; }
+
+  // ★ 新增：Figure8 (黃金鯊：四角α型深淵迴旋) 初始化 ──
+  boss.figurePhase = 'move';
+  boss.figurePattern = Math.floor(Math.random() * 4); // 0:左上, 1:右上, 2:左下, 3:右下
+  boss.figureTime = -1.25; 
+  boss.angle = 0; 
+
+  // ★ 根據動態設定初始出生點
+  if (_activeBossDef.pathType === 'hover') {
+      boss.x = startDir === 1 ? -BOSS_DW : W + BOSS_DW;
+      boss.y = boss.hoverTargetY;
+  } else if (_activeBossDef.pathType === 'sine') {
+      boss.x = startDir === 1 ? -BOSS_DW : W + BOSS_DW;
+      boss.y = boss.sineBaseY;
+  } else if (_activeBossDef.pathType === 'straight') {
+      boss.x = startDir === 1 ? -BOSS_DW : W + BOSS_DW;
+      boss.y = boss.straightTargetY;
+  } else if (_activeBossDef.pathType === 'circle') {
+      boss.x = (W/2) + Math.cos(boss.circleAngle) * (W/2 + 300);
+      boss.y = boss.circleCy + Math.sin(boss.circleAngle) * (H + 100);
+  } else if (_activeBossDef.pathType === 'figure8') {
+      boss.x = -9999; 
+      boss.y = -9999;
+  } else {
+      boss.x = -BOSS_DW / 2; 
+      boss.y = H / 2; 
+  }
+  
   boss.enterTimer = BOSS_ENTER_DURATION; 
-  bossTimeLeft = currentLimit; // 倒數計時完全採用編輯器設定
+  bossTimeLeft = currentLimit; 
   bossTimerActive = false; 
   
-  // ★ 效能優化：回收現有魚到 pool
   for(let i = 0; i < fishes.length; i++) fishPool.push(fishes[i]);
   fishes.length = 0;
   
-  // ★ 更新 UI：顯示當前 Boss 名稱
   const bossName = _activeBossDef.name || '鯊魚王';
   const hpLabel = _domCache.bossHpLabel;
   if (hpLabel) hpLabel.textContent = `⚠ BOSS ${bossName} Lv.${bossLevel + 1} ⚠`;
@@ -1227,141 +1543,411 @@ function triggerBoss(){
 }
 
 function easeInOut(t){ return t<0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+// 👇 從這裡開始往下全部複製，替換掉原本的 drawBoss 函式 👇
 function drawBoss(dt){
-  // ★ 改用 _activeBossDef：有圖片才畫，沒有圖片時 fallback 幾何矩形
   const bd = _activeBossDef;
   if(boss.state === 'idle' || boss.state === 'dead') return;
 
-  const now = Date.now(); let targetX, targetY;
+  const now = Date.now(); 
+  let targetX = boss.x, targetY = boss.y; 
   const pt = bd.pathType || 'sine';
+  // 保底全域變數
   const amp = bd.sineAmp || 25;
   const freq = bd.sineFreq || 0.0008;
 
-  if(boss.state === 'entering'){
-    boss.enterTimer -= dt;
-    const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_ENTER_DURATION));
-    // 入場方向
-    const enterFrom = bd.enterFrom || 'left';
-    if (enterFrom === 'right') {
-      targetX = W + BOSS_DW/2 - (W/2 + BOSS_DW/2) * t;
-    } else if (enterFrom === 'top') {
-      targetX = W/2;
-      boss.x = W/2; // 水平已定位
-      targetY = -BOSS_DH/2 + (H/2 + BOSS_DH/2) * t;
-    } else { // left (預設)
-      targetX = -BOSS_DW/2 + (W/2 + BOSS_DW/2) * t;
-    }
-    if (enterFrom !== 'top') targetY = H/2 + Math.sin(now * 0.0008) * 15;
+  // ==========================================
+  // ── Hover (大鯊魚：循環游擊) ──
+  // ==========================================
+  if (pt === 'hover' && boss.state !== 'dying') {
+      if (boss.hoverPhase === 'move') {
+          let lerpFactor = 3.5; 
+          boss.x += (boss.hoverTargetX - boss.x) * lerpFactor * dt;
+          boss.y += (boss.hoverTargetY - boss.y) * lerpFactor * dt;
+          if (Math.abs(boss.hoverTargetX - boss.x) < 5 && Math.abs(boss.hoverTargetY - boss.y) < 5) {
+              boss.x = boss.hoverTargetX; boss.y = boss.hoverTargetY;
+              boss.hoverPhase = 'wait'; boss.hoverTimer = 3.0; 
+          }
+      } else if (boss.hoverPhase === 'wait') {
+          const intensity = bd.hoverIntensity || 5;
+          targetX = boss.hoverTargetX + (Math.random() - 0.5) * intensity;
+          targetY = boss.hoverTargetY + (Math.random() - 0.5) * intensity;
+          boss.x += (targetX - boss.x) * 0.1; boss.y += (targetY - boss.y) * 0.1;
+          boss.hoverTimer -= dt;
+          if (boss.hoverTimer <= 0) {
+              boss.hoverPhase = 'exit';
+              boss.hoverExitSpeed = 0; 
+              boss.hoverDestX = boss.hoverDirection === 1 ? W + BOSS_DW : -BOSS_DW;
+          }
+      } else if (boss.hoverPhase === 'exit') {
+          boss.hoverExitSpeed += 1800 * dt; 
+          boss.x += boss.hoverDirection * boss.hoverExitSpeed * dt;
+          if ((boss.hoverDirection === 1 && boss.x >= boss.hoverDestX) || 
+              (boss.hoverDirection === -1 && boss.x <= boss.hoverDestX)) {
+              boss.hoverPhase = 'delay'; boss.hoverTimer = 0.2; 
+          }
+      } else if (boss.hoverPhase === 'delay') {
+          boss.hoverTimer -= dt;
+          if (boss.hoverTimer <= 0) {
+              boss.hoverDirection *= -1; // 嚴格交替
+              boss.hoverPhase = 'move';
+              boss.x = boss.hoverDirection === 1 ? -BOSS_DW : W + BOSS_DW;
+              boss.hoverTargetY = rand(150, H - 150); boss.y = boss.hoverTargetY;
+              boss.hoverTargetX = boss.hoverDirection === 1 ? rand(300, W/2 + 100) : rand(W/2 - 100, W - 300);
+          }
+      }
+      targetX = boss.x; targetY = boss.y;
+      if (boss.state === 'entering') boss.enterTimer -= dt;
+  } 
+  // ==========================================
+  // ── Sine (克拉肯：波浪飄移) 動態變速版 ──
+  // ==========================================
+  else if (pt === 'sine' && boss.state !== 'dying') {
+      let speed = 260 * dt; 
+      // ★ 動態變速：在畫面外啟動極速滑行，防斷 Combo
+      if (boss.x < -150 || boss.x > W + 150) {
+          speed = 1200 * dt; 
+      }
 
-  } else if(boss.state === 'active'){
-    // ★ 五種動態軌跡
-    switch(pt) {
-      case 'figure8':
-        targetX = W/2 + Math.sin(now * freq) * amp * 2.5;
-        targetY = H/2 + Math.sin(now * freq * 2) * amp;
-        break;
-      case 'circle':
-        targetX = W/2 + Math.cos(now * freq) * amp * 2;
-        targetY = H/2 + Math.sin(now * freq) * amp;
-        break;
-      case 'hover':
-        const intensity = bd.hoverIntensity || 8;
-        targetX = W/2 + (Math.random() - 0.5) * intensity;
-        targetY = H/2 + (Math.random() - 0.5) * intensity;
-        break;
-      case 'straight':
-        targetX = W/2 + Math.sin(now * freq) * (W/2 - BOSS_DW/2 - 50);
-        targetY = H/2;
-        break;
-      case 'sine':
-      default:
-        targetX = W/2 + Math.sin(now * 0.0004) * 60;
-        targetY = H/2 + Math.sin(now * freq) * amp;
-        break;
-    }
+      const waveAmp = (bd.sineAmp && bd.sineAmp >= 50) ? bd.sineAmp : 220;   
+      let waveFreq = bd.sineFreq || 0.015; 
+      
+      if (boss.sinePhase === 'move') {
+          boss.x += boss.sineDirection * speed;
+          boss.y = boss.sineBaseY + Math.sin(boss.x * waveFreq) * waveAmp;
 
-  } else if(boss.state === 'dying'){
-    boss.enterTimer -= dt;
-    const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_EXIT_DURATION));
-    const enterFrom = bd.enterFrom || 'left';
-    if (enterFrom === 'right') {
-      targetX = W/2 - (W/2 + BOSS_DW/2) * t;
-    } else if (enterFrom === 'top') {
-      targetX = W/2;
-      targetY = H/2 - (H/2 + BOSS_DH/2) * t;
-    } else {
-      targetX = W/2 + (W/2 + BOSS_DW/2) * t;
-    }
-    if (enterFrom !== 'top') targetY = H/2 + Math.sin(now * 0.0008) * 15;
-    if(boss.enterTimer <= 0){
-      boss.state = 'dead'; hideBossUI();
-      setTimeout(()=>{ boss.state = 'idle'; boss.hp = boss.maxHp; }, 500);
-      return;
-    }
+          if ((boss.sineDirection === 1 && boss.x >= W + BOSS_DW) || 
+              (boss.sineDirection === -1 && boss.x <= -BOSS_DW)) {
+              boss.sinePhase = 'delay';
+              boss.sineTimer = 0.2; 
+          }
+      } else if (boss.sinePhase === 'delay') {
+          boss.sineTimer -= dt;
+          if (boss.sineTimer <= 0) {
+              boss.sineDirection *= -1; 
+              boss.sinePhase = 'move';
+              boss.x = boss.sineDirection === 1 ? -BOSS_DW : W + BOSS_DW;
+              boss.sineBaseY = rand(250, H - 250);
+              boss.y = boss.sineBaseY + Math.sin(boss.x * waveFreq) * waveAmp;
+          }
+      }
+      
+      targetX = boss.x; targetY = boss.y;
+      if (boss.state === 'entering') boss.enterTimer -= dt;
+  }
+  // ==========================================
+  // ── Straight (紫晶蟹：螃蟹步) 編輯器連動版 ──
+  // ==========================================
+  else if (pt === 'straight' && boss.state !== 'dying') {
+      // ★ 安全轉型：強制轉為 Number，防止編輯器傳回字串導致數學運算變 NaN 當機
+      const editorAmp = Number(bd.sineAmp) || 25;
+      const editorFreq = Number(bd.sineFreq) || 0.0008;
+
+      const speedRatio = editorFreq / 0.0008;
+      const speed = 1000 * speedRatio * dt; 
+      const exitAccel = 1500 * speedRatio;
+
+      const durationOffset = (editorAmp - 25) * 0.2;
+      const basePatrolDuration = Math.max(1.0, 3.0 + durationOffset);
+
+      const edgePadding = 100; 
+
+      if (boss.straightPhase === 'enter') {
+          let destX = boss.straightJourneyDir === 1 ? edgePadding : W - edgePadding; 
+          let lerpFactor = 3.0;
+          boss.x += (destX - boss.x) * lerpFactor * dt;
+          boss.y += (boss.straightTargetY - boss.y) * lerpFactor * dt;
+          
+          if (Math.abs(destX - boss.x) < 5) {
+              boss.x = destX;
+              boss.straightPhase = 'patrol';
+              boss.straightTimer = basePatrolDuration + Math.random() * 2.0; 
+              boss.straightDirection = -boss.straightJourneyDir; 
+          }
+      } else if (boss.straightPhase === 'patrol') {
+          boss.x += boss.straightDirection * speed;
+          boss.straightTimer -= dt;
+          
+          if (boss.x > W - edgePadding) {
+              boss.x = W - edgePadding;
+              boss.straightDirection = -1; 
+          } else if (boss.x < edgePadding) {
+              boss.x = edgePadding;
+              boss.straightDirection = 1;  
+          }
+          
+          if (boss.straightTimer <= 0) {
+              boss.straightPhase = 'exit';
+              boss.straightExitSpeed = 0;
+              boss.straightDirection = boss.straightJourneyDir;
+          }
+      } else if (boss.straightPhase === 'exit') {
+          boss.straightExitSpeed += exitAccel * dt; 
+          boss.x += boss.straightJourneyDir * boss.straightExitSpeed * dt;
+          
+          if ((boss.straightJourneyDir === 1 && boss.x >= W + BOSS_DW) || 
+              (boss.straightJourneyDir === -1 && boss.x <= -BOSS_DW)) {
+              boss.straightPhase = 'delay';
+              boss.straightTimer = 0.2; 
+          }
+      } else if (boss.straightPhase === 'delay') {
+          boss.straightTimer -= dt;
+          if (boss.straightTimer <= 0) {
+              boss.straightJourneyDir *= -1; 
+              boss.straightDirection = boss.straightJourneyDir; 
+              boss.straightPhase = 'enter';
+              boss.x = boss.straightJourneyDir === 1 ? -BOSS_DW : W + BOSS_DW;
+              boss.straightTargetY = rand(150, H - 150); 
+              boss.y = boss.straightTargetY;
+          }
+      }
+
+      targetX = boss.x; targetY = boss.y;
+      if (boss.state === 'entering') boss.enterTimer -= dt;
+  }
+  // ==========================================
+  // ── Circle (翡翠龍：四角半圓突襲) ──
+  // ==========================================
+  else if (pt === 'circle' && boss.state !== 'dying') {
+      const editorAmp = Number(bd.sineAmp) || 25;
+      const editorFreq = Number(bd.sineFreq) || 0.0008;
+
+      const speedRatio = editorFreq / 0.0008;
+      const angularSpeed = 0.6 * speedRatio * dt; 
+
+      const sizeOffset = (editorAmp - 25) * 10;
+      const rx = (W / 2 + 300) + sizeOffset; 
+      const ry = (H + 100) + sizeOffset;     
+      const cx = W / 2;
+
+      if (boss.circlePhase === 'move') {
+          boss.circleAngle += boss.circleDir * angularSpeed;
+          boss.x = cx + Math.cos(boss.circleAngle) * rx;
+          boss.y = boss.circleCy + Math.sin(boss.circleAngle) * ry;
+
+          let isDone = false;
+          if (boss.circlePattern === 0 && boss.circleAngle <= 0) isDone = true;
+          else if (boss.circlePattern === 1 && boss.circleAngle >= Math.PI) isDone = true;
+          else if (boss.circlePattern === 2 && boss.circleAngle >= Math.PI * 2) isDone = true;
+          else if (boss.circlePattern === 3 && boss.circleAngle <= Math.PI) isDone = true;
+
+          if (isDone) {
+              boss.circlePhase = 'delay';
+              boss.circleTimer = 0.4; 
+          }
+      } 
+      else if (boss.circlePhase === 'delay') {
+          boss.circleTimer -= dt;
+          if (boss.circleTimer <= 0) {
+              boss.circlePhase = 'move';
+              boss.circlePattern = Math.floor(Math.random() * 4);
+              
+              if (boss.circlePattern === 0) { boss.circleAngle = Math.PI; boss.circleCy = -300; boss.circleDir = -1; }
+              else if (boss.circlePattern === 1) { boss.circleAngle = 0; boss.circleCy = -300; boss.circleDir = 1; }
+              else if (boss.circlePattern === 2) { boss.circleAngle = Math.PI; boss.circleCy = H + 300; boss.circleDir = 1; }
+              else { boss.circleAngle = Math.PI * 2; boss.circleCy = H + 300; boss.circleDir = -1; }
+              
+              boss.x = cx + Math.cos(boss.circleAngle) * rx;
+              boss.y = boss.circleCy + Math.sin(boss.circleAngle) * ry;
+          }
+      }
+
+      targetX = boss.x; targetY = boss.y;
+      if (boss.state === 'entering') boss.enterTimer -= dt;
+  }
+  // ==========================================
+  // ── Figure8 (黃金鯊：四角α型深淵迴旋) ──
+  // ==========================================
+  else if (pt === 'figure8' && boss.state !== 'dying') {
+      let T = boss.figureTime;
+      
+      const editorAmp = Number(bd.sineAmp) || 25;
+      const editorFreq = Number(bd.sineFreq) || 0.0008;
+
+      if (boss.figurePhase === 'move') {
+          const speedRatio = editorFreq / 0.0008; 
+          const speedMult = (0.75 + Math.pow(Math.abs(T), 3) * 0.8) * speedRatio;
+          boss.figureTime += 0.5 * speedMult * dt;
+          T = boss.figureTime;
+
+          if (T >= 1.25) {
+              boss.figurePhase = 'delay';
+              boss.figureTimer = 0.5;
+          }
+
+          const cx = W / 2;
+          const cy = H / 2; 
+
+          const dirX = (boss.figurePattern === 0 || boss.figurePattern === 2) ? 1 : -1;
+          const dirY = (boss.figurePattern === 0 || boss.figurePattern === 1) ? 1 : -1;
+
+          const sizeOffset = (editorAmp - 25) * 5; 
+          
+          const Rx = 400 + sizeOffset;   
+          const Ry = 350 + sizeOffset;   
+          const K = 700 + sizeOffset * 1.5;    
+          const Vy = 750 + sizeOffset * 1.5;   
+
+          const piT = Math.PI * T;
+
+          boss.x = cx + dirX * (Rx * Math.cos(piT) - K * Math.pow(T, 4));
+          boss.y = cy + dirY * (Vy * Math.pow(T, 3) - Ry * Math.sin(piT));
+
+          const vx = dirX * (-Rx * Math.PI * Math.sin(piT) - 4 * K * Math.pow(T, 3));
+          const vy = dirY * (3 * Vy * Math.pow(T, 2) - Ry * Math.PI * Math.cos(piT));
+
+          boss.angle = Math.atan2(vy, vx);
+      } 
+      else if (boss.figurePhase === 'delay') {
+          boss.figureTimer -= dt;
+          boss.x = -9999; 
+          boss.y = -9999;
+          if (boss.figureTimer <= 0) {
+              boss.figurePhase = 'move';
+              boss.figureTime = -1.25; 
+              boss.figurePattern = Math.floor(Math.random() * 4); 
+          }
+      }
+
+      targetX = boss.x; targetY = boss.y;
+      if (boss.state === 'entering') boss.enterTimer -= dt;
+  }
+  // ==========================================
+  // 其他常規動態 (進退場兜底) 邏輯
+  // ==========================================
+  else {
+      if(boss.state === 'entering'){
+        boss.enterTimer -= dt;
+        const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_ENTER_DURATION));
+        const enterFrom = bd.enterFrom || 'left';
+        if (enterFrom === 'right') {
+          targetX = W + BOSS_DW/2 - (W/2 + BOSS_DW/2) * t;
+        } else if (enterFrom === 'top') {
+          targetX = W/2; boss.x = W/2; 
+          targetY = -BOSS_DH/2 + (H/2 + BOSS_DH/2) * t;
+        } else { 
+          targetX = -BOSS_DW/2 + (W/2 + BOSS_DW/2) * t;
+        }
+        if (enterFrom !== 'top') targetY = H/2 + Math.sin(now * 0.0008) * 15;
+
+      } else if(boss.state === 'active'){
+        switch(pt) {
+          case 'figure8':
+            targetX = W/2 + Math.sin(now * freq) * amp * 2.5;
+            targetY = H/2 + Math.sin(now * freq * 2) * amp;
+            break;
+          case 'circle':
+            targetX = W/2 + Math.cos(now * freq) * amp * 2;
+            targetY = H/2 + Math.sin(now * freq) * amp;
+            break;
+        }
+      } else if(boss.state === 'dying'){
+        boss.enterTimer -= dt;
+        const t = easeInOut(1 - Math.max(0, boss.enterTimer / BOSS_EXIT_DURATION));
+        const enterFrom = bd.enterFrom || 'left';
+        if (enterFrom === 'right') targetX = W/2 - (W/2 + BOSS_DW/2) * t;
+        else if (enterFrom === 'top') { targetX = W/2; targetY = H/2 - (H/2 + BOSS_DH/2) * t; }
+        else targetX = W/2 + (W/2 + BOSS_DW/2) * t;
+        
+        if (enterFrom !== 'top') targetY = H/2 + Math.sin(now * 0.0008) * 15;
+        if(boss.enterTimer <= 0){
+          boss.state = 'dead'; hideBossUI();
+          setTimeout(()=>{ boss.state = 'idle'; boss.hp = boss.maxHp; }, 500);
+          return;
+        }
+      }
   }
 
   const lerpSpeed = 1 - Math.pow(0.01, dt);
   boss.x += (targetX - boss.x) * lerpSpeed;
   boss.y += (targetY - boss.y) * lerpSpeed;
 
-  // 幀動畫推進
   bossFrameTimer += dt; const bfd = 1/30;
   while(bossFrameTimer >= bfd){
-    bossFrameTimer -= bfd;
-    bossFrame = (bossFrame + 1) % (bd.frames || 1);
+    bossFrameTimer -= bfd; bossFrame = (bossFrame + 1) % (bd.frames || 1);
   }
 
-  // 取得繪製尺寸
+  // ==========================================
+  // ── 繪圖輸出 (含方向翻轉控制) ──
+  // ==========================================
   const dw = bd.displayW || BOSS_DW;
   const dh = bd.displayH || BOSS_DH;
 
   ctx.save();
+  ctx.translate(boss.x, boss.y);
+  
+  let scaleX = 1;
+  if (boss.state !== 'dying' && boss.state !== 'dead') {
+      if (pt === 'hover') {
+          scaleX = boss.hoverDirection === 1 ? 1 : -1;
+          ctx.scale(scaleX, 1);
+      } else if (pt === 'sine') {
+          scaleX = boss.sineDirection === 1 ? 1 : -1;
+          ctx.scale(scaleX, 1);
+      } else if (pt === 'straight') {
+          scaleX = boss.straightDirection === 1 ? 1 : -1;
+          ctx.scale(scaleX, 1);
+      } else if (pt === 'circle') {
+          scaleX = (boss.circlePattern === 0 || boss.circlePattern === 2) ? 1 : -1;
+          ctx.scale(scaleX, 1);
+      } else if (pt === 'figure8') {
+          ctx.rotate(boss.angle);
+          if (boss.figurePattern === 1 || boss.figurePattern === 3) {
+              ctx.scale(1, -1);
+          }
+      }
+  }
 
   if (bd.img) {
-    // ── Sprite 繪製 ──
     const fc = bd.frames_cache ? bd.frames_cache[bossFrame] : null;
     if (bd.bgMode === 'black') ctx.globalCompositeOperation = 'screen';
 
     if (fc) {
-      ctx.drawImage(fc, 0, 0, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+      ctx.drawImage(fc, 0, 0, bd.frameW, bd.frameH, -dw/2, -dh/2, dw, dh);
       if(boss.hitFlash > 0){
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5;
-        ctx.drawImage(fc, 0, 0, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+        ctx.drawImage(fc, 0, 0, bd.frameW, bd.frameH, -dw/2, -dh/2, dw, dh);
         ctx.restore();
       }
     } else {
       const c = bd.cols || 1;
       const srcX = (bossFrame % c) * bd.frameW;
       const srcY = Math.floor(bossFrame / c) * bd.frameH;
-      ctx.drawImage(bd.img, srcX, srcY, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+      ctx.drawImage(bd.img, srcX, srcY, bd.frameW, bd.frameH, -dw/2, -dh/2, dw, dh);
       if(boss.hitFlash > 0){
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5;
-        ctx.drawImage(bd.img, srcX, srcY, bd.frameW, bd.frameH, boss.x - dw/2, boss.y - dh/2, dw, dh);
+        ctx.drawImage(bd.img, srcX, srcY, bd.frameW, bd.frameH, -dw/2, -dh/2, dw, dh);
         ctx.restore();
       }
     }
   } else {
-    // ── Fallback：幾何矩形（Boss 圖片尚未載入時）──
     ctx.fillStyle = boss.hitFlash > 0 ? '#ff6600' : '#cc2200';
     ctx.shadowColor = '#ff0000'; ctx.shadowBlur = 30;
-    ctx.fillRect(boss.x - dw/2, boss.y - dh/2, dw, dh);
+    ctx.fillRect(-dw/2, -dh/2, dw, dh);
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#fff'; ctx.font = 'bold 28px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('BOSS', boss.x, boss.y + 10);
+    
+    if (scaleX === -1) ctx.scale(-1, 1); 
+    if (pt === 'figure8') {
+        if (boss.figurePattern === 1 || boss.figurePattern === 3) ctx.scale(1, -1); 
+        ctx.rotate(-boss.angle); 
+    }
+    ctx.fillText('BOSS', 0, 10);
   }
 
   if (boss.hitFlash > 0) boss.hitFlash--;
   ctx.restore();
 }
 function checkBossCollision(){
-  if(boss.state !== 'active') return;
-  const bSize = _activeBossDef.size || 200; // ★ 讀當前Boss的碰撞半徑
+  // ★ 修改：將判斷條件放寬，讓 Boss 在 'entering' (進場時) 也能被攻擊
+  if(boss.state !== 'active' && boss.state !== 'entering') return;
+  
+  const bSize = _activeBossDef.size || 200; 
   for(let b of bullets){
     if(b.life <= 0) continue;
     if((Math.pow(b.x - boss.x, 2) / Math.pow(bSize * 1.8, 2)) + (Math.pow(b.y - boss.y, 2) / Math.pow(bSize * 1.0, 2)) < 1){
       b.life = 0; boss.hp = Math.max(0, boss.hp - betAmount); boss.hitFlash = 4; updateBossHpBar();
       
-      // ★ 核心優化：打 Boss 也能累積 Combo，且倒數計時會重置！
       comboCount++;
       comboTimer = 2.5; 
       updateComboUI();
@@ -1373,7 +1959,6 @@ function checkBossCollision(){
         for(let i=0; i<5; i++){ setTimeout(()=>{ spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0)); spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true); }, i*300); }
         spawnFloatingText(boss.x, boss.y-100, 'BOSS 擊殺！限時獎勵 ×1.5', 120, '#ffee00', 30);
         
-        // ⬇️ 加上這行，讓 Boss 噴出超級大量的金幣雨！
         spawnFlyingCoins(boss.x, boss.y, 100); 
 
         setTimeout(()=> settleBossResult(true), 800);
@@ -1811,8 +2396,8 @@ function spawnFlyingCoins(x, y, mult) {
 
 // 💰 更新與繪製飛入 UI 的金幣 (修正：無限繞圈與位置偏移 bug)
 function updateDrawFlyingCoins(dt) {
-  // ★ 將 110 改成 300
-  const targetX = 300, targetY = 680; 
+  // ★ 金幣收入位置從左邊300改為右邊900
+  const targetX = 900, targetY = 680; 
   if (!coinImg.complete) return;
 
   let coinsHitThisFrame = false; 
@@ -1828,7 +2413,7 @@ function updateDrawFlyingCoins(dt) {
       let dx = targetX - c.x, dy = targetY - c.y, d = Math.hypot(dx, dy);
       
       // ★ 加入防呆機制 (c.flySpeed >= d)：防止掉幀時金幣飛太快越過目標，變成無限繞圈！
-      if (d < 45 || c.flySpeed >= d) {
+    if (d < 45 || c.flySpeed >= d) {
         flyingCoins.splice(i, 1);
         coinsHitThisFrame = true; 
         continue;
@@ -1843,13 +2428,18 @@ function updateDrawFlyingCoins(dt) {
   }
   ctx.restore();
 
+  // ★ 當金幣抵達終點時的特效觸發
   if (coinsHitThisFrame) {
     AudioEngine.play(SOUNDS.coin, 0.4); 
-    const el = _domCache.coinsDisplay;
+    
+    // 👇 這裡將 _domCache.coinsDisplay 改為 _domCache.scoreDisplay 👇
+    const el = _domCache.scoreDisplay; 
     if(el) { 
-      el.style.transform = 'scale(1.35)'; 
-      if (window.coinTimer) clearTimeout(window.coinTimer);
-      window.coinTimer = setTimeout(()=> el.style.transform = 'scale(1)', 80); 
+      el.style.transform = 'scale(1.4)'; // 瞬間放大 1.4 倍
+      
+      // 使用獨立的計時器，避免與其他動畫衝突
+      if (window.scoreHitTimer) clearTimeout(window.scoreHitTimer);
+      window.scoreHitTimer = setTimeout(()=> el.style.transform = 'scale(1)', 80); // 80 毫秒後縮回原狀
     }
   }
 }
@@ -2042,21 +2632,24 @@ function drawBackground(){
   // ★ 渲染順序 1：動態影片（保持原始比例以高度填滿）
   let bgDrawn = false;
   if (!isIOS && bgVideo && bgVideo.readyState >= 2) {
+      
+    // 👇 ★ 新增：無縫循環修復！
+    // 在影片距離結束只剩 0.1 秒時，手動強制跳回第 0.05 秒
+    // 徹底避開瀏覽器原生 loop 造成的 1~2 幀閃黑與效能卡頓
+    if (bgVideo.duration && bgVideo.currentTime >= bgVideo.duration - 0.1) {
+        bgVideo.currentTime = 0.05; 
+    }
+      
     const r = calcBgRect(bgVideo);
     ctx.drawImage(bgVideo, r.dx, r.dy, r.dw, r.dh);
     bgDrawn = true;
   }
+  
   // ★ 渲染順序 2：靜態圖片（保持原始比例以高度填滿）
   else if(curBgImg && curBgImg.complete && curBgImg.naturalWidth > 0){
     const r = calcBgRect(curBgImg);
     ctx.drawImage(curBgImg, r.dx, r.dy, r.dw, r.dh);
     bgDrawn = true;
-  }
-  
-  // ★ 渲染順序 3：漸層兜底
-  if (!bgDrawn) {
-    const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#001428'); g.addColorStop(0.45,'#001f3f'); g.addColorStop(1,'#000c18'); ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-    for(const s of bgGlows){ const rg = ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r); rg.addColorStop(0, hexToRgba(s.color, s.opacity)); rg.addColorStop(1, 'transparent'); ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill(); }
   }
 
   // 🎯 3. 畫上轉場深海黑幕 (同步 Canvas 內層與 DOM 外層)
@@ -2324,10 +2917,11 @@ function gameLoop(timestamp){
   lastRafTime = timestamp;
 
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05); lastTime = timestamp;
-  drawBackground(); updateDrawBubbles(dt); drawCrosshair();
+  drawBackground(); updateDrawBubbles(dt);
 
   // ★ 更新 Combo 計時器 (時間到就斷掉 Combo 並隱藏 UI)
-  if (comboTimer > 0 && boss.state !== 'entering') {
+  // 加入 boss.state !== 'dying' 的安全鎖，讓結算畫面能保留最後的 Combo 數字
+  if (comboTimer > 0 && boss.state !== 'entering' && boss.state !== 'dying') {
     comboTimer -= dt;
     if (comboTimer <= 0) {
       comboCount = 0;
@@ -2420,6 +3014,8 @@ function gameLoop(timestamp){
   }
 
   checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawRipples(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
+  // ★ 將準星畫在這裡！確保它壓在所有魚、特效和金幣的上面！
+  drawCrosshair();
   // ★ 效能優化：幀尾統一 flush HUD，把這幀所有 updateHUD() 呼叫合併成一次 DOM 寫入
   _flushHUD();
   updateHUD();
@@ -2432,27 +3028,31 @@ function gameLoop(timestamp){
 
   if(boss.state === 'active' || boss.state === 'entering') spawnTimer = 0;
 
-  // ⚡ 尋找自動射擊的目標 (iPhone 極速雷達版：平方距離取代開根號)
+  // ⚡ 尋找自動射擊的目標 (Boss 絕對優先 + iPhone 極速雷達)
   let target = null;
   if (autoFire) {
-    let minDistSq = Infinity; // 改為紀錄「距離的平方」
-    
-    // ★ 放棄效能較差的 for...of，改回最原始、執行速度最快的 for 迴圈
-    for (let i = 0, len = fishes.length; i < len; i++) {
-      const f = fishes[i];
-      
-      // 合併判斷條件，提早剔除無效目標，節省運算
-      if (f.dead || f.x < 0 || f.x > W || f.y < 0 || f.y > H - 100) continue;
+    // ★ 新增：Boss 絕對優先權！如果 Boss 在場上，自動射擊的雷達直接死鎖 Boss 不放
+    if (boss.state === 'active' || boss.state === 'entering') {
+        target = boss;
+    } 
+    // 若沒有 Boss，才去掃描一般小魚
+    else {
+        let minDistSq = Infinity; 
+        
+        for (let i = 0, len = fishes.length; i < len; i++) {
+          const f = fishes[i];
+          
+          if (f.dead || f.x < 0 || f.x > W || f.y < 0 || f.y > H - 100) continue;
 
-      // ★ 核心優化：拔掉極度耗能的 dist (Math.hypot)，直接算 X 軸與 Y 軸的平方和
-      const dx = cannon.x - f.x;
-      const dy = cannon.y - f.y;
-      const distSq = dx * dx + dy * dy; 
+          const dx = cannon.x - f.x;
+          const dy = cannon.y - f.y;
+          const distSq = dx * dx + dy * dy; 
 
-      if (distSq < minDistSq) { 
-        minDistSq = distSq; 
-        target = f; 
-      }
+          if (distSq < minDistSq) { 
+            minDistSq = distSq; 
+            target = f; 
+          }
+        }
     }
   }
 
@@ -2514,17 +3114,27 @@ canvas.addEventListener('touchmove', e=>{ e.preventDefault(); const t = e.change
 canvas.addEventListener('touchend', e=>{ e.preventDefault(); mouseDown = false; }, { passive:false });
 
 document.getElementById('bossResultClose').addEventListener('click', ()=>{ if(_domCache.bossResult) _domCache.bossResult.classList.remove('show'); if(boss.state === 'dead'){ boss.state = 'idle'; boss.hp = boss.maxHp; } });
-const BET_VALS = [1, 5, 10, 15, 20, 50, 75, 100, 200, 500];
+const BET_VALS = [1, 5, 10, 15, 20, 50, 75, 100, 200, 300, 400, 500];
 document.getElementById('betDown').addEventListener('click',()=>{ const i=BET_VALS.indexOf(betAmount); if(i>0){ betAmount=BET_VALS[i-1]; updateHUD(); } });
 
 // 👇 ★ 修改火力解鎖門檻：第二與第三關都卡在 75 倍 👇
 document.getElementById('betUp').addEventListener('click',()=>{ 
-  let maxAllowed = 15;                         // ★ 第 1 關(5000)與第 2 關(10000)：最高 15 倍
-  if (bossLevel === 2 || bossLevel === 3) {    // ★ 第 3 關(20000)與第 4 關(40000)：最高 75 倍
-    maxAllowed = 75; 
-  }
-  if (bossLevel >= 4) {                        // ★ 第 5 關(80000)以上：全開 500 倍
-    maxAllowed = 500; 
+  let maxAllowed = 15;                         // 第 1~2 關 (bossLevel 0, 1)：最高 15 倍
+
+  if (bossLevel === 2) {
+    maxAllowed = 50;                           // 第 3 關：最高 50 倍
+  } else if (bossLevel === 3) {
+    maxAllowed = 75;                           // 第 4 關：最高 75 倍
+  } else if (bossLevel === 4) {
+    maxAllowed = 100;                          // 第 5 關：最高 100 倍
+  } else if (bossLevel === 5) {
+    maxAllowed = 200;                          // 第 6 關：最高 200 倍
+  } else if (bossLevel === 6) {
+    maxAllowed = 300;                          // 第 7 關：最高 300 倍
+  } else if (bossLevel === 7) {
+    maxAllowed = 400;                          // 第 8 關：最高 400 倍
+  } else if (bossLevel >= 8) {
+    maxAllowed = 500;                          // 第 9 關以上：全開最高 500 倍
   }
 
   const i = BET_VALS.indexOf(betAmount); 
@@ -2600,14 +3210,22 @@ uniqueAssets.forEach(url => {
   }
 });
 
+// ★ 新增：防止連點的防呆安全鎖
+let isGameStarted = false;
+
 // ★ 點擊開始按鈕 (解鎖音樂、進入遊戲、並請求全螢幕)
 startBtn.addEventListener('click', async () => {
+  // ★ 關鍵防護：如果已經啟動過了，就直接擋掉後續的所有點擊！
+  if (isGameStarted) return; 
+  isGameStarted = true;
+
   // ★ 預載所有音效並啟動 BGM（必須在使用者點擊後才能建立 AudioContext）
   await AudioEngine.preload([
     SOUNDS.shoot1, SOUNDS.shoot2, SOUNDS.shoot3,
     SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm
   ]);
   AudioEngine.playBGM(SOUNDS.bgm);
+
   // 0. 請求全螢幕 (跨瀏覽器相容寫法)
   const docElm = document.documentElement;
   if (docElm.requestFullscreen) {
