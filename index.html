@@ -899,12 +899,13 @@ let recoilAmount = 0; // 砲管後座力偏移量
 //  🎵 音效引擎 (Audio Engine)
 // ════════════════════════════════════════════
 const SOUNDS = {
-  shoot1: 'shoot1.mp3', // 一階：單發
-  shoot2: 'shoot2.mp3', // 二階：雙管
-  shoot3: 'shoot3.mp3', // 三階：電漿
+  shoot1: 'shoot1.mp3', 
+  shoot2: 'shoot2.mp3', 
+  shoot3: 'shoot3.mp3', 
   coin:  'coin.mp3',
   boss:  'boss.mp3',
-  bgm:   'music.mp3'
+  bgm:   'music.mp3',
+  nuke:  'nuke.mp3' // ★ 新增：核爆專屬音效
 };
 
 // ════════════════════════════════════════════
@@ -1265,6 +1266,126 @@ const bgGlows = Array.from({length:30}, ()=>({
   x: Math.random()*W, y: Math.random()*H, r: Math.random()*80+30,
   opacity: Math.random()*0.07+0.02, color: ['#0044aa','#003388','#002266','#003355','#004466'][Math.floor(Math.random()*5)]
 }));
+
+// ==========================================
+// ☢ 核爆引擎與螢幕震動系統 ☢
+// ==========================================
+const bombImg = new Image();
+bombImg.src = '炸彈.png';
+// ★ 新增：離線畫布 (Offscreen Canvas)，用來預先製作完美的紅色炸彈形狀
+const redBombCanvas = document.createElement('canvas');
+bombImg.onload = () => {
+    redBombCanvas.width = bombImg.width;
+    redBombCanvas.height = bombImg.height;
+    const rctx = redBombCanvas.getContext('2d');
+    rctx.drawImage(bombImg, 0, 0);
+    rctx.globalCompositeOperation = 'source-in'; // 完美保留原本形狀的去背遮罩
+    rctx.fillStyle = '#ff0000';
+    rctx.fillRect(0, 0, bombImg.width, bombImg.height);
+};
+
+let bombs = [];
+let screenShakeTimer = 0;
+let screenShakeIntensity = 0;
+let whiteFlashTimer = 0;
+
+function spawnBomb(x, y, bet) {
+  bombs.push({ x: x, y: y, timer: 0, maxTime: 2.5, betAmount: bet });
+}
+
+function triggerScreenShake(duration, intensity) {
+  screenShakeTimer = duration;
+  screenShakeIntensity = intensity;
+}
+
+function updateDrawBombs(dt) {
+  if (!bombImg.complete) return;
+  
+  for (let i = bombs.length - 1; i >= 0; i--) {
+    let b = bombs[i];
+    b.timer += dt;
+    let progress = b.timer / b.maxTime; 
+
+    // 計算縮放與心跳脈動
+    let pulseFreq = 5 + progress * 25; 
+    let pulseVal = Math.sin(progress * Math.PI * pulseFreq);
+    let scale = 0.6 + progress * 1.0 + Math.max(0, pulseVal) * 0.15; 
+    let size = 150 * scale; 
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+
+    // ★ 1. 畫出原本的炸彈
+    ctx.drawImage(bombImg, -size/2, -size/2, size, size);
+
+    // ★ 2. 疊加完美去背的「紅色炸彈」，利用透明度創造脹紅感！
+    if (progress > 0 && redBombCanvas.width > 0) {
+      ctx.globalAlpha = Math.min(1, progress * 0.8 + Math.max(0, pulseVal) * 0.2);
+      ctx.drawImage(redBombCanvas, -size/2, -size/2, size, size);
+      ctx.globalAlpha = 1.0; // 重置透明度
+    }
+    ctx.restore();
+
+    // ★ 3. 倒數結束，引發全畫面核爆！
+    if (b.timer >= b.maxTime) {
+      triggerScreenShake(0.8, 40); 
+      whiteFlashTimer = 1.0;       
+      
+      // 👇 改用專屬的核爆音效！
+      AudioEngine.play(SOUNDS.nuke, 1.0); 
+
+      // 產生核爆視覺特效 (多重連環爆破)
+      for(let j=0; j<8; j++) {
+        setTimeout(() => {
+           spawnExplosion(b.x + rand(-350, 350), b.y + rand(-250, 250), rand(3, 7));
+           spawnParticles(b.x + rand(-350, 350), b.y + rand(-250, 250), '#ff3300', 40, 8, 25, 80);
+           if(j%2===0) spawnRipple(b.x + rand(-200, 200), b.y + rand(-200, 200), rand(2.0, 4.0));
+        }, Math.random() * 400);
+      }
+      spawnFloatingText(W/2, H/2, "☢ 核能爆發 ☢", 150, '#ff0000', 70);
+
+      // 核爆傷害判定... (保留後續所有原有邏輯)
+      let totalWon = 0;
+      for (let f of fishes) {
+        if (f.dead || f.x < -100 || f.x > W+100 || f.y < -100 || f.y > H+100) continue;
+        
+        let killChance = 1.5 / Math.sqrt(f.mult); 
+        if (Math.random() < killChance || f.id <= 10) { 
+          f.hp = 0;
+          f.dead = true;
+          let won = b.betAmount * f.mult;
+          totalWon += won;
+          spawnFlyingCoins(f.x, f.y, f.mult);
+          spawnExplosion(f.x, f.y, f.size / 60);
+        } else {
+          f.hp -= b.betAmount * 50; 
+          f.hitFlash = 15;
+        }
+      }
+      
+      if (totalWon > 0) {
+        sessionScore += totalWon;
+        spawnFloatingText(b.x, b.y - 80, `+${totalWon} 核爆總獎勵!`, 120, '#ffcc00', 45);
+        _hudDirty = true;
+      }
+
+      if (boss.state === 'active') {
+        boss.hp -= b.betAmount * 200; 
+        boss.hitFlash = 25;
+        updateBossHpBar();
+        spawnFloatingText(boss.x, boss.y, `核爆重擊!`, 80, '#ff0000', 40);
+        if(boss.hp <= 0){
+          boss.state = 'dying'; boss.enterTimer = 2.5; bossTimerActive = false; if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show');
+          for(let k=0; k<5; k++){ setTimeout(()=>{ spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0)); spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true); }, k*300); }
+          spawnFloatingText(boss.x, boss.y-100, 'BOSS 擊殺！', 120, '#ffee00', 30);
+          spawnFlyingCoins(boss.x, boss.y, 100);
+          setTimeout(()=> settleBossResult(true), 800);
+        }
+      }
+      bombs.splice(i, 1);
+    }
+  }
+}
 
 // ════════════════════════════════════════════
 //  ★ 核心修正：資產預載與自動校正系統 (無重複)
@@ -2301,6 +2422,12 @@ function damageFish(f, hitX, hitY, bulletType = 1) { // ★ 多接收一個 bull
 
   if(f.hp <= 0){
     f.dead = true; 
+
+    // 👇 ★ 新增：如果死掉的是炸彈蟹 (ID: 14)，把炸彈丟出來！
+        if (f.id === 14) {
+           spawnBomb(f.x, f.y, betAmount);
+        }
+        // 👆 ★ 新增結束 👆
     
     // ★ 1. 必須先增加 Combo 數，才能拿最新的 Combo 去算獎勵！
     comboCount++;
@@ -3045,6 +3172,8 @@ function gameLoop(timestamp){
   }
 
   checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawRipples(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
+  // 👇 ★ 1. 畫出炸彈與其脈動效果 👇
+  updateDrawBombs(dt);
   // ★ 將準星畫在這裡！確保它壓在所有魚、特效和金幣的上面！
   drawCrosshair();
   // ★ 效能優化：幀尾統一 flush HUD，把這幀所有 updateHUD() 呼叫合併成一次 DOM 寫入
@@ -3129,6 +3258,26 @@ function gameLoop(timestamp){
     } else { 
       mouseFireTimer = 0; 
     }
+  }
+// 👇 ★ 2. 處理核爆瞬間的全畫面閃白光 👇
+  if (whiteFlashTimer > 0) {
+    ctx.save();
+    ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1, whiteFlashTimer)})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    whiteFlashTimer -= dt * 1.5;
+  }
+
+  // 👇 ★ 3. 處理真實的物理螢幕震動 (搖晃整個遊戲視窗) 👇
+  const wrapper = document.getElementById('gameWrapper');
+  if (screenShakeTimer > 0) {
+    screenShakeTimer -= dt;
+    let dx = (Math.random() - 0.5) * screenShakeIntensity;
+    let dy = (Math.random() - 0.5) * screenShakeIntensity;
+    wrapper.style.transform = `translate(${dx}px, ${dy}px)`;
+  } else if (screenShakeTimer > -1) {
+    wrapper.style.transform = `none`; // 震動結束，完美歸位
+    screenShakeTimer = -2; // 進入休眠，節省效能
   }
 
   requestAnimationFrame(gameLoop);
@@ -3251,10 +3400,10 @@ startBtn.addEventListener('click', async () => {
   if (isGameStarted) return; 
   isGameStarted = true;
 
-  // ★ 預載所有音效並啟動 BGM（必須在使用者點擊後才能建立 AudioContext）
+  // ★ 預載所有音效並啟動 BGM
   await AudioEngine.preload([
     SOUNDS.shoot1, SOUNDS.shoot2, SOUNDS.shoot3,
-    SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm
+    SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm, SOUNDS.nuke // ⬅️ 將 SOUNDS.nuke 加在這裡
   ]);
   AudioEngine.playBGM(SOUNDS.bgm);
 
