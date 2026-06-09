@@ -915,13 +915,12 @@ let stageTotalSpent = 0;
 let comboCount     = 0;
 let comboTimer     = 0; 
 
-// ★ 關卡與 Boss 漸進獎勵變數 (完美 96% RTP 模型)
-// 關卡目標分數：指數成長，營造後期拿高倍大砲掃射的快感
+// ★ 關卡目標分數：維持指數成長，用來吸收後期 500 倍電漿巨砲的恐怖火力！
 const STAGE_GOALS   = [5000, 10000, 20000, 40000, 80000, 160000, 320000, 640000, 1280000, 2560000]; 
 
-// Boss 基礎全額獎金：精準設定為目標分數的 13.5% 
-// 配合 80% 小魚 RTP 與平均 1.5 倍 Combo，將機台總 RTP 死死鎖在 96%
-const STAGE_REWARDS = [675, 1350, 2700, 5400, 10800, 21600, 43200, 86400, 172800, 345600];  
+// ★ Boss 基礎全額獎金：大幅收斂差距 (第 1 關 1500，第 10 關最高只給 15000)
+// 這樣既保證了後期的關卡難度，又徹底封死了莊家破產的風險
+const STAGE_REWARDS = [1500, 2500, 4000, 5500, 7000, 8500, 10000, 12000, 13500, 15000]; 
 
 // 💡 關鍵修正：補回被誤刪的當前關卡核心變數
 let bossLevel      = 0; 
@@ -1839,6 +1838,8 @@ const coinImg = new Image();
 coinImg.src = 'coin.png';
 const plasmaImg = new Image();
 plasmaImg.src = '電漿彈.png';
+const bulletImg = new Image();
+bulletImg.src = 'bullet.png';
 let plasmaExplosions = [];
 
 // 2. Boss 資產預載（多Boss版：遍歷 bossList 陣列）
@@ -1945,14 +1946,26 @@ function settleBossResult(killedInTime){
   let unlockText = "";
 
   if (killedInTime) {
-    // 【勝利】：給予全額 Boss 獎金 (這裡讀取陣列，您之後可以針對每關去調數值讓它接近玩家回本)
+    // 【勝利】：給予全額 Boss 獎金 (現在讀取的是平滑化後的新陣列)
     bossBounty = STAGE_REWARDS[bossLevel];
-    if (!bossBounty) bossBounty = 48000 * Math.pow(2, Math.max(0, bossLevel - 5));
+    if (!bossBounty) bossBounty = 15000; // 兜底最高獎金
 
-    // 【勝利加成】：套用 Boss 死亡瞬間的 Combo 倍數，這才是玩家真正賺錢 (3~5%) 的地方！
+    // 👇 ★ Boss 連擊加成新邏輯：100連擊滿分(多給1倍)，超過的部分每 1 Combo 只給 1 元！
     let comboBonusRate = 1.0;
-    if (comboCount >= 2) comboBonusRate = Math.min(2.0, 1 + (comboCount * 0.02));
-    bossComboBonus = Math.floor(bossBounty * (comboBonusRate - 1.0));
+    let extraFlatBonus = 0;
+    
+    if (comboCount >= 2) {
+      // 結算前 100 連擊的 % 數加成
+      comboBonusRate = Math.min(2.0, 1 + (comboCount * 0.01));
+      
+      // 超過 100 連擊的部分，每下固定 +1 元
+      if (comboCount > 100) {
+        extraFlatBonus = comboCount - 100;
+      }
+    }
+    
+    // 總 Combo 獎金 = (全額獎金 * 趴數) + 溢出固定獎金
+    bossComboBonus = Math.floor(bossBounty * (comboBonusRate - 1.0)) + extraFlatBonus;
 
     bountyText = "✅ 擊敗全額獎金";
     
@@ -2661,8 +2674,7 @@ let _totalFishWeight = 0;
 // （在資源載入後、遊戲開始前計算，見 startBtn handler）
 
 function spawnFish(){
-  // ★ 魚數量上限：iOS 嚴格限制為 35 隻，桌機不限制
-  const MAX_FISH = isIOS ? 35 : 999;
+  const MAX_FISH = 999;
   if(fishes.length >= MAX_FISH) return;
 
   let r = Math.random() * _totalFishWeight;
@@ -2882,14 +2894,11 @@ function damageFish(f, hitX, hitY, bulletType = 1, isMainTarget = true) {
   let pSpd = comboCount >= 100 ? 12 : 6;
   spawnParticles(hitX, hitY, pColor, pCount, 2, pSpd, 35);
   
-  let killBonus = 1.0;
-  if (bulletType === 3) {
-    // 👇 ★ 核心平衡機制：主目標保留 1.5 倍的高致死爽感，擴散波及的魚只給 0.2 倍機率
-    killBonus = isMainTarget ? 1.5 : 0.2; 
-  } 
+  // 👇 ★ 核心平衡機制：主目標保留 1.5 倍的高致死爽感，擴散波及只給 0.2 倍
+  let killBonus = isMainTarget ? 1.5 : 0.2; 
 
-  // 👇 ★ 完美採納您的建議：基數降為 0.45，完美抵銷 Combo 帶來的通膨！
-  const killChance = (0.45 / f.mult) * killBonus; 
+  // 👇 ★ 嚴格控管：基數降為 0.3，徹底逼出高階武器的真實成本！
+  const killChance = (0.30 / f.mult) * killBonus; 
   
   if (Math.random() < killChance) { f.hp = 0; } 
   else { f.hp = Math.max(0.1, f.hp - (f.maxHp / (f.mult * 1.5))); }
@@ -2897,38 +2906,25 @@ function damageFish(f, hitX, hitY, bulletType = 1, isMainTarget = true) {
   if(f.hp <= 0){
     f.dead = true; 
 
-    // 👇 ★ 新增：如果死掉的是炸彈蟹 (ID: 14)，把炸彈丟出來！
-        if (f.id === 14) {
-           spawnBomb(f.x, f.y, betAmount);
-        }
-        
-    // 👇 ★ 再新增：如果死掉的是鑽頭蟹 (ID: 15)，且目前沒有正在使用的鑽頭，觸發彈出！
-        if (f.id === 15 && drillWeapon.state === 'none') {
-           drillWeapon.state = 'flying';
-           drillWeapon.x = f.x;
-           drillWeapon.y = f.y;
-           drillWeapon.betAmount = betAmount; // 繼承擊殺這隻螃蟹時的火力，作為鑽頭的傷害基準
-        }
-    // 👇 ★ 新增：如果死掉的是轉輪蟹 (ID: 16)，觸發幸運輪盤！
-        if (f.id === 16 && roulette.state === 'none') {
-           triggerRoulette(betAmount);
-        }
-    // ★ 1. 必須先增加 Combo 數，才能拿最新的 Combo 去算獎勵！
+    if (f.id === 14) spawnBomb(f.x, f.y, betAmount);
+    if (f.id === 15 && drillWeapon.state === 'none') {
+       drillWeapon.state = 'flying'; drillWeapon.x = f.x; drillWeapon.y = f.y; drillWeapon.betAmount = betAmount; 
+    }
+    if (f.id === 16 && roulette.state === 'none') triggerRoulette(betAmount);
+
     comboCount++;
     comboTimer = 2.5; 
     updateComboUI(); 
     
-    // ★ 2. 實裝 Combo 加成演算法！
-    // 規則：每一個 Combo 增加 2% 獎勵，最高加成 100% (也就是 2.0 倍，需要 50 連擊)
+    // 👇 ★ 修改小魚連擊加成：改為每連擊 +1%，滿 100 連擊才會達到最高 2.0 倍
     let comboBonusRate = 1.0;
     if (comboCount >= 2) {
-      comboBonusRate = Math.min(2.0, 1 + (comboCount * 0.02));
+      comboBonusRate = Math.min(2.0, 1 + (comboCount * 0.01));
     }
 
-    // ★ 3. 計算最終獲得分數 (基本分 x 連擊加成)
     const baseWon = betAmount * f.mult; 
-    const finalWon = Math.round(baseWon * comboBonusRate); // 四捨五入取整數
-    sessionScore += finalWon; 
+    const finalWon = Math.round(baseWon * comboBonusRate); 
+    sessionScore += finalWon;
     
     const exScale = f.size / 120;
     spawnExplosion(f.x, f.y, Math.max(0.6, Math.min(2.5, exScale * 2.5)));
@@ -3295,8 +3291,8 @@ function drawBackground(){
 
   // ★ 渲染順序 1：動態影片（保持原始比例以高度填滿）
   let bgDrawn = false;
-  if (!isIOS && bgVideo && bgVideo.readyState >= 2) {
-      
+  // 👇 ★ 替換為 (解除 iOS 限制)：
+  if (bgVideo && bgVideo.readyState >= 2) {
     const r = calcBgRect(bgVideo);
     ctx.drawImage(bgVideo, r.dx, r.dy, r.dw, r.dh);
     bgDrawn = true;
@@ -3352,41 +3348,43 @@ function updateDrawBubbles(dt){
 }
 
 function drawBullet(b) {
+  // 如果圖檔還沒載入完，先不畫以免報錯
+  if (!bulletImg.complete) return; 
+
   ctx.save();
   
-  // ★ 數學計算尾跡長度，取代消耗記憶體的陣列紀錄
+  // 計算子彈的當前速度與朝向角度
   const speed = Math.hypot(b.vx, b.vy);
   const angle = Math.atan2(b.vy, b.vx);
-  const trailLen = Math.min((130 - b.life) * speed, 12 * speed); // 模擬原本 12 幀的長度
+  // 動態計算尾跡長度 (剛發射時較短，飛行中拉長)
+  const trailLen = Math.min((130 - b.life) * speed, 12 * speed);
 
+  // 1. 將畫布原點移動到子彈中心，並轉向飛行方向
+  ctx.translate(b.x, b.y);
+  ctx.rotate(angle);
+
+  // 根據子彈階級決定大小 (三階電漿砲最大)
+  let size = b.type === 3 ? 24 : 12;
+
+  // ★ 魔法 1：畫出雷射尾跡 (強制拉長圓形圖檔)
   if (trailLen > 0) {
-    let trailColor = 'rgba(50, 150, 255, 0.3)';
-    if (b.type === 2) trailColor = 'rgba(80, 220, 255, 0.3)';
-    if (b.type === 3) trailColor = 'rgba(0, 255, 255, 0.4)';
-    ctx.strokeStyle = trailColor;
-    ctx.lineWidth = b.type === 3 ? 6 : 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(b.x, b.y);
-    ctx.lineTo(b.x - Math.cos(angle) * trailLen, b.y - Math.sin(angle) * trailLen);
-    ctx.stroke();
+    // 使用 screen (濾色) 模式，讓尾跡疊加時產生高亮發光感
+    ctx.globalCompositeOperation = 'screen';
+    // 尾巴透明度減半，讓尾跡更輕透不搶戲
+    ctx.globalAlpha = b.type === 3 ? 0.3 : 0.2;
+    
+    // 往負 X 軸 (左邊) 畫，長度為 trailLen，高度稍微壓扁(0.8)更有速度感
+    ctx.drawImage(bulletImg, -trailLen, -size / 6, trailLen, size / 3);
   }
+
+  // ★ 魔法 2：畫出高亮彈頭
+  // 恢復正常覆蓋模式與不透明度
+  ctx.globalCompositeOperation = 'source-over'; 
+  ctx.globalAlpha = 1.0;
   
-  ctx.beginPath();
-  if (b.type === 1 || !b.type) {
-    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
-    ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
-  } else if (b.type === 2) {
-    ctx.shadowColor = '#44eeff'; ctx.shadowBlur = 0;
-    ctx.fillStyle = '#66e8ff'; ctx.arc(b.x, b.y, 5.5, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 2, 0, Math.PI*2);
-  } else if (b.type === 3) {
-    ctx.shadowColor = '#00ffff'; ctx.shadowBlur = 0;
-    ctx.fillStyle = '#00bbff'; ctx.arc(b.x, b.y, 11, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#e0ffff'; ctx.shadowBlur = 0; ctx.beginPath(); ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
-  }
-  ctx.fill();
+  // 按照正常 1:1 比例疊加在最前端
+  ctx.drawImage(bulletImg, -size / 2, -size / 2, size, size);
+
   ctx.restore();
 }
 
@@ -3602,10 +3600,15 @@ function gameLoop(timestamp){
   }
 
   spawnTimer++;
-  // ★ iOS 效能優化：降低生成頻率，iOS 每 110 幀最多生 2 隻，桌機維持原本邏輯
-  const spawnInterval = isIOS ? 110 : 75;
-  const spawnMax = isIOS ? 2 : 4;
-  if(spawnTimer >= spawnInterval){ spawnTimer = 0; const n = Math.floor(rand(1, spawnMax)); for(let i=0;i<n;i++) spawnFish(); }
+  // 👇 ★ 替換為 (全平台統一高頻率生成)：
+  const spawnInterval = 75;
+  const spawnMax = 4;
+  
+  if(spawnTimer >= spawnInterval){ 
+    spawnTimer = 0; 
+    const n = Math.floor(rand(1, spawnMax)); 
+    for(let i=0;i<n;i++) spawnFish(); 
+  }
 
 // ── 1. 邏輯更新階段：移動、動畫、死亡與邊界判定 ──
   for(let i=fishes.length-1; i>=0; i--){
@@ -3953,7 +3956,13 @@ startBtn.addEventListener('click', async () => {
   if (isGameStarted) return; 
   isGameStarted = true;
 
-  // ★ 預載所有音效並啟動 BGM
+  // 👇 ★ 核心修正：點擊瞬間立刻給予視覺回饋，消除玩家等待解碼時的「卡頓錯覺」
+  startBtn.textContent = '啟動引擎中...';
+  startBtn.style.filter = 'brightness(0.7) grayscale(0.5)';
+  startBtn.style.cursor = 'wait';
+  startBtn.style.animation = 'none'; // 停止呼吸燈特效
+
+  // ★ 預載所有音效並啟動 BGM (這裡會消耗 1~3 秒進行 CPU 解碼)
   await AudioEngine.preload([
     SOUNDS.shoot1, SOUNDS.shoot2, SOUNDS.shoot3,
     SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm, SOUNDS.nuke,
