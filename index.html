@@ -783,7 +783,7 @@ const ASSETS = {
     { name: '大鯊魚', stageMin: 1, stageMax: 1, duration: 30,
       sheet: '大鯊魚.webp', frames: 100, cols: 10,
       displayW: 600, displayH: 400, bgMode: 'none',
-      hp: 1200, mult: 500, size: 150,
+      hp: 1000, mult: 500, size: 150,
       pathType: 'hover', hoverIntensity: 8, enterFrom: 'left' },
     { name: '大鯊魚', stageMin: 2, stageMax: 2, duration: 30,
       sheet: '大鯊魚.webp', frames: 100, cols: 10,
@@ -793,65 +793,65 @@ const ASSETS = {
     { name: '克拉肯', stageMin: 3, stageMax: 3, duration: 45,
       sheet: '克拉肯.webp', frames: 40, cols: 10,
       displayW: 750, displayH: 650, bgMode: 'none',
-      hp: 6500, mult: 500, size: 180,
+      hp: 15000, mult: 500, size: 180,
       pathType: 'sine', sineAmp: 100, sineFreq: 0.01, enterFrom: 'left' },
     { name: '克拉肯', stageMin: 4, stageMax: 4, duration: 45,
       sheet: '克拉肯.webp', frames: 40, cols: 10,
       displayW: 750, displayH: 650, bgMode: 'none',
-      hp: 10000, mult: 500, size: 180,
+      hp: 20000, mult: 500, size: 180,
       pathType: 'sine', sineAmp: 200, sineFreq: 0.01, enterFrom: 'left' },
     { name: '紫晶蟹', stageMin: 5, stageMax: 5, duration: 60,
       sheet: '紫晶蟹.webp', frames: 20, cols: 10,
       displayW: 750, displayH: 630, bgMode: 'none',
-      hp: 18000, mult: 500, size: 200,
+      hp: 23000, mult: 500, size: 200,
       pathType: 'straight', sineAmp: 25, sineFreq: 0.0005, enterFrom: 'left' },
     { name: '紫晶蟹', stageMin: 6, stageMax: 6, duration: 60,
       sheet: '紫晶蟹.webp', frames: 20, cols: 10,
       displayW: 750, displayH: 630, bgMode: 'none',
-      hp: 36000, mult: 500, size: 200,
+      hp: 38000, mult: 500, size: 200,
       pathType: 'straight', sineAmp: 25, sineFreq: 0.001, enterFrom: 'left' },
     { name: '翡翠龍', stageMin: 7, stageMax: 7, duration: 60,
       sheet: '翡翠龍.webp', frames: 40, cols: 10,
       displayW: 1000, displayH: 582, bgMode: 'none',
-      hp: 55000, mult: 500, size: 200,
+      hp: 50000, mult: 500, size: 200,
       pathType: 'figure8', sineAmp: 25, sineFreq: 0.0008, enterFrom: 'left' },
     { name: '翡翠龍', stageMin: 8, stageMax: 8, duration: 60,
       sheet: '翡翠龍.webp', frames: 40, cols: 10,
       displayW: 1000, displayH: 582, bgMode: 'none',
-      hp: 75000, mult: 500, size: 200,
+      hp: 60000, mult: 500, size: 200,
       pathType: 'figure8', sineAmp: 25, sineFreq: 0.0012, enterFrom: 'left' },
     { name: '黃金鯊', stageMin: 9, stageMax: 9, duration: 60,
       sheet: '黃金鯊.webp', frames: 80, cols: 10,
       displayW: 600, displayH: 430, bgMode: 'none',
-      hp: 95000, mult: 500, size: 200,
+      hp: 75000, mult: 500, size: 200,
       pathType: 'circle', sineAmp: 25, sineFreq: 0.0016, enterFrom: 'left' },
     { name: '黃金鯊', stageMin: 10, stageMax: 10, duration: 60,
       sheet: '黃金鯊.webp', frames: 80, cols: 10,
       displayW: 600, displayH: 430, bgMode: 'none',
-      hp: 110000, mult: 500, size: 200,
+      hp: 850000, mult: 500, size: 200,
       pathType: 'circle', sineAmp: 40, sineFreq: 0.0032, enterFrom: 'left' },
     { name: '黃金鯊', stageMin: 11, stageMax: 11, duration: 60,
       sheet: '黃金鯊.webp', frames: 80, cols: 10,
       displayW: 800, displayH: 449, bgMode: 'none',
-      hp: 120000, mult: 500, size: 200,
+      hp: 1000000, mult: 500, size: 200,
       pathType: 'circle', sineAmp: 25, sineFreq: 0.0064, enterFrom: 'left' },
   ],
 
   // 向後相容（指向第一隻Boss）
   boss: { sheet: '大鯊魚.webp', frames: 100, cols: 10,
     displayW: 600, displayH: 400, bgMode: 'none',
-    hp: 1200, mult: 500, size: 150, },
+    hp: 1000, mult: 500, size: 150, },
 
   fishSprites: {
     2: { sheet: '小魚B.webp', frames: 76, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'arc', sineAmp: 25, formation: 'single', formationCount: 1, spawnDir: 'all' },  // 小魚B
     3: { sheet: '飛魚.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 80, hitH: 50, formation: 'line' },  // 飛魚
     4: { sheet: '小丑魚.webp', frames: 76, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
     5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 河豚
-    6: { sheet: '龍蝦.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 龍蝦
+    6: { sheet: '龍蝦.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'all' },  // 龍蝦
     8: { sheet: '章魚.webp', frames: 141, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
     9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
     10: { sheet: '海龜.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
-    11: { sheet: '鯊魚.webp', frames: 70, cols: 10, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 160, spawnDir: 'horizontal' },  // 鯊魚
+    11: { sheet: '鯊魚.webp', frames: 70, cols: 10, displayW: 270, displayH: 155, bgMode: 'none', hitType: 'rect', hitW: 250, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
     12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, pathType: 'arc', spawnDir: 'horizontal' },  // 錘頭鯊
     13: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
     14: { sheet: '炸彈蟹.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 炸彈蟹
@@ -2875,20 +2875,21 @@ function updateComboUI() {
 }
 
 // ✅ 替換成這個「巨砲強化版」：
-function damageFish(f, hitX, hitY, bulletType = 1) { 
-  // 👇 ★ 狂熱模式門檻改為 100，純白高溫火花現在更稀有了！
+function damageFish(f, hitX, hitY, bulletType = 1, isMainTarget = true) { 
   f.hitFlash = comboCount >= 100 ? 6 : 3; 
   let pColor = comboCount >= 100 ? '#ffffff' : f.color;
   let pCount = comboCount >= 100 ? 15 : 8;
   let pSpd = comboCount >= 100 ? 12 : 6;
   spawnParticles(hitX, hitY, pColor, pCount, 2, pSpd, 35);
   
-  // 👇 ★ 暴力美學：如果是三階電漿巨砲，單體致死率直接翻 2 倍！(跟雙管炮兩發全中的期望值一樣)
   let killBonus = 1.0;
-  if (bulletType === 3) killBonus = 2.0; 
+  if (bulletType === 3) {
+    // 👇 ★ 核心平衡機制：主目標保留 1.5 倍的高致死爽感，擴散波及的魚只給 0.2 倍機率
+    killBonus = isMainTarget ? 1.5 : 0.2; 
+  } 
 
-  // 👇 ★ 替換為 80% 的底層機率，幫 Boss 獎金池存錢！
-  const killChance = (0.80 / f.mult) * killBonus;
+  // 👇 ★ 完美採納您的建議：基數降為 0.45，完美抵銷 Combo 帶來的通膨！
+  const killChance = (0.45 / f.mult) * killBonus; 
   
   if (Math.random() < killChance) { f.hp = 0; } 
   else { f.hp = Math.max(0.1, f.hp - (f.maxHp / (f.mult * 1.5))); }
