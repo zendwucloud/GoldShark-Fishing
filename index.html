@@ -157,20 +157,31 @@
     cursor:none; /* 用自訂準心取代 */
   }
 
-  /* 💥 狂熱金光遮罩 (GPU 硬體加速) */
+  /* 💥 100連擊狂熱金光遮罩 (GPU 硬體加速 + 順暢熄滅冷卻) */
   #feverOverlay {
     position: absolute; inset: 0; z-index: 9;
     pointer-events: none;
-    /* 👇 ★ 核心修正：改為橘黃色調 (亮黃色過渡到金橘色) */
-    background: radial-gradient(ellipse at center, transparent 20%, rgba(255, 200, 0, 0.4) 60%, rgba(255, 140, 0, 0.8) 100%);
     mix-blend-mode: screen; 
     opacity: 0;
-    transition: opacity 0.3s ease-out;
+    /* ★ 將熄滅時間拉長到 0.8 秒，營造連擊中斷後，高溫「逐漸冷卻」的滑順視覺感 */
+    transition: opacity 0.8s ease-out; 
     will-change: opacity;
   }
+  
+  /* 當 JS 加上 active 時，父層觸發平滑淡入 */
   #feverOverlay.active {
+    opacity: 1;
+  }
+  
+  /* ★ 核心修正：將「漸層背景」與「呼吸閃爍動畫」獨立放到偽元素裡面！
+     這樣當 JS 移除 active 狀態時，父層的 transition 淡出才不會被強制切斷 */
+  #feverOverlay::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 20%, rgba(255, 200, 0, 0.4) 60%, rgba(255, 140, 0, 0.8) 100%);
     animation: feverPulse 0.4s ease-in-out infinite alternate;
   }
+  
   @keyframes feverPulse {
     from { opacity: 0.4; }
     to { opacity: 1.0; }
@@ -1285,41 +1296,44 @@ function generatePaytable() {
     });
 
     // ==========================================
-    // ★ 5. 獨立啟動：賠率表的多列 Sprite 動畫引擎
+    // ★ 5. 獨立啟動：賠率表的多列 Sprite 動畫引擎 (極致效能快取版)
     // ==========================================
-    // 先清除舊的計時器，避免重複呼叫 generatePaytable 時產生多個 loop 造成加速
     if (window.paytableAnimTimer) clearInterval(window.paytableAnimTimer);
     
+    // ★ 效能優化 1：只在初始化時抓取一次必要的 DOM
+    const infoModal = document.getElementById('info-modal');
+    const spriteNodes = document.querySelectorAll('.paytable-sprite');
+    
+    // ★ 效能優化 2：預先將所有 data-* 屬性讀取到純 JS 記憶體中，拒絕在迴圈內讀取 DOM！
+    const spritesData = Array.from(spriteNodes).map(el => ({
+        el: el,
+        frames: parseInt(el.getAttribute('data-frames'), 10) || 1,
+        cols: parseInt(el.getAttribute('data-cols'), 10) || 1,
+        rows: parseInt(el.getAttribute('data-rows'), 10) || 1,
+        currentFrame: parseInt(el.getAttribute('data-current-frame'), 10) || 0
+    }));
+
     window.paytableAnimTimer = setInterval(() => {
         // 【效能保護】只有當 info-modal 打開時才去計算動畫
-        const infoModal = document.getElementById('info-modal');
         if (!infoModal || !infoModal.classList.contains('active')) return;
 
-        const sprites = document.querySelectorAll('.paytable-sprite');
-        
-        sprites.forEach(el => {
-            const frames = parseInt(el.getAttribute('data-frames'), 10);
-            if (frames <= 1) return; // 單張靜態圖就直接跳過
+        spritesData.forEach(spr => {
+            if (spr.frames <= 1) return; // 單張靜態圖就直接跳過
 
-            const cols = parseInt(el.getAttribute('data-cols'), 10);
-            const rows = parseInt(el.getAttribute('data-rows'), 10);
-            let currentFrame = parseInt(el.getAttribute('data-current-frame'), 10);
-
-            // 推進一幀
-            currentFrame = (currentFrame + 1) % frames;
-            el.setAttribute('data-current-frame', currentFrame);
+            // 在純 JS 記憶體中推進一幀
+            spr.currentFrame = (spr.currentFrame + 1) % spr.frames;
 
             // 計算精準的 X 與 Y 軸位置
-            const xIndex = currentFrame % cols;
-            const yIndex = Math.floor(currentFrame / cols);
+            const xIndex = spr.currentFrame % spr.cols;
+            const yIndex = Math.floor(spr.currentFrame / spr.cols);
 
-            const xPos = cols > 1 ? (xIndex / (cols - 1)) * 100 : 0;
-            const yPos = rows > 1 ? (yIndex / (rows - 1)) * 100 : 0;
+            const xPos = spr.cols > 1 ? (xIndex / (spr.cols - 1)) * 100 : 0;
+            const yPos = spr.rows > 1 ? (yIndex / (spr.rows - 1)) * 100 : 0;
 
-            // 套用到 inline CSS
-            el.style.backgroundPosition = `${xPos}% ${yPos}%`;
+            // ★ 效能優化 3：每一幀只負責「寫入」，完全沒有「讀取」，效能開銷趨近於 0
+            spr.el.style.backgroundPosition = `${xPos}% ${yPos}%`;
         });
-    }, 45); // 45ms 刷新率，約等於遊戲內的 22fps
+    }, 45); 
 }
 
 let fishes = [], bullets = [], particles = [], floatingTexts = [], explosions = [], flyingCoins = [], nets = [], ripples = [];
@@ -3815,25 +3829,30 @@ document.getElementById('betUp').addEventListener('click',()=>{
 document.getElementById('autoBtn').addEventListener('click',()=>{ autoFire=!autoFire; const btn=document.getElementById('autoBtn'); btn.classList.toggle('active',autoFire); document.getElementById('autoText').textContent = autoFire ? '■ 停止自動' : '自動射擊'; });
 
 // ════════════════════════════════════════════
-//  ⏳ 資源預載系統 (Loading System)
+//  ⏳ 資源預載系統 (分段靜默加載版)
 // ════════════════════════════════════════════
-// 自動蒐集所有需要載入的圖片與音效
-const allAssetsToLoad = [
-  'gui.png', '+.png', '-.png', '倍數.png', '砲座.png', '砲管A.png', '砲管B.png', '砲管C.png', 'coin.png', '電漿彈.png',
-  // 👇 🎯 圖片與影片雙重預載，確保進度條跑完時，影片已經在緩存裡了
-  'bg_01.jpg', 'bg_02.jpg', 'bg_03.jpg', 'bg_04.jpg', 'bg_05.jpg',
-  'bg_01.mp4', 'bg_02.mp4', 'bg_03.mp4', 'bg_04.mp4', 'bg_05.mp4',
-  ASSETS.explosion ? ASSETS.explosion.sheet : null,
-  // ★ 多Boss版：預載所有 Boss 圖片（bossList 或 fallback 到舊版 boss）
-  ...(ASSETS.bossList ? ASSETS.bossList.map(b => b.sheet) : (ASSETS.boss ? [ASSETS.boss.sheet] : [])),
-  ...Object.values(ASSETS.fishSprites).map(f => f.sheet),
-  ...Object.values(SOUNDS)
-].filter(Boolean); // 過濾掉空白項目
 
-// 去除重複的 URL
-const uniqueAssets = [...new Set(allAssetsToLoad)];
+// ★ 1. 極速首包：只包含第一關必須的素材，保證幾秒內就能進入遊戲！
+const CORE_ASSETS = [
+  'gui.png', '+.png', '-.png', '倍數.png', '砲座.png', '砲管A.png', '砲管B.png', '砲管C.png', 'coin.png', '電漿彈.png',
+  'bg_01.jpg', 'bg_01.mp4', // 👈 只載入第一關的背景
+  ASSETS.explosion ? ASSETS.explosion.sheet : null,
+  ASSETS.bossList ? ASSETS.bossList[0].sheet : null, // 👈 只載入第一隻 Boss (大鯊魚)
+  ...Object.values(ASSETS.fishSprites).map(f => f.sheet), // 小魚圖檔都不大，全載入沒問題
+  ...Object.values(SOUNDS) // 音效通常很小，建議首包全載
+].filter(Boolean);
+
+// ★ 2. 後續關卡素材：等玩家開始打魚後，才在背景偷偷下載
+const STAGE_ASSETS = [
+  'bg_02.jpg', 'bg_03.jpg', 'bg_04.jpg', 'bg_05.jpg',
+  'bg_02.mp4', 'bg_03.mp4', 'bg_04.mp4', 'bg_05.mp4',
+  ...(ASSETS.bossList ? ASSETS.bossList.slice(1).map(b => b.sheet) : []) // 👈 擷取第 2 隻以後的 Boss
+].filter(Boolean);
+
+const uniqueCoreAssets = [...new Set(CORE_ASSETS)];
+const uniqueStageAssets = [...new Set(STAGE_ASSETS)];
 let loadedCount = 0;
-const totalCount = uniqueAssets.length;
+const totalCount = uniqueCoreAssets.length; // 👈 讀條只看核心首包的進度！
 
 const fillEl = document.getElementById('loadingBarFill');
 const textEl = document.getElementById('loadingText');
@@ -3855,16 +3874,16 @@ function updateProgress() {
   }
 }
 
-// 執行暴力預載
-uniqueAssets.forEach(url => {
+// 執行極速首包預載
+uniqueCoreAssets.forEach(url => {
   if (url.endsWith('.mp3') || url.endsWith('.wav')) {
     const audio = new Audio();
     audio.oncanplaythrough = updateProgress;
-    audio.onerror = updateProgress; // 若找不到檔案也視為通過，避免卡死
+    audio.onerror = updateProgress; 
     audio.src = url;
     audio.load();
   } else if (url.endsWith('.webm') || url.endsWith('.mp4')) {
-    updateProgress(); // iOS/桌機均不阻塞等待影片，直接算通過
+    updateProgress(); 
   } else {
     const img = new Image();
     img.onload = updateProgress;
@@ -3872,6 +3891,27 @@ uniqueAssets.forEach(url => {
     img.src = url;
   }
 });
+
+// ★ 3. 靜默下載引擎：在不影響遊戲效能的情況下，偷偷把後續檔案塞進瀏覽器快取
+function startSilentPreload() {
+  let delay = 3000; // 延遲 3 秒，等玩家順利進入漁場、效能穩定後才開始偷抓
+  setTimeout(() => {
+    console.log("🚀 開始背景靜默下載後續關卡素材...");
+    uniqueStageAssets.forEach((url, index) => {
+      // 錯開每個檔案的下載時間 (每 1.5 秒抓一個)，避免瞬間塞爆玩家手機頻寬導致遊戲卡頓
+      setTimeout(() => {
+        if (url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mp3')) {
+          // 多媒體檔案使用 fetch 塞入 Disk Cache
+          fetch(url).catch(()=>{}); 
+        } else {
+          // 圖片檔案直接建立 Image 物件塞入 Memory Cache
+          const img = new Image();
+          img.src = url; 
+        }
+      }, index * 1500); 
+    });
+  }, delay);
+}
 
 // ★ 新增：防止連點的防呆安全鎖
 let isGameStarted = false;
@@ -3886,9 +3926,12 @@ startBtn.addEventListener('click', async () => {
   await AudioEngine.preload([
     SOUNDS.shoot1, SOUNDS.shoot2, SOUNDS.shoot3,
     SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm, SOUNDS.nuke,
-    SOUNDS.wheel1, SOUNDS.wheel2, SOUNDS.morecoin // ★ 新增這三支檔案
+    SOUNDS.wheel1, SOUNDS.wheel2, SOUNDS.morecoin 
   ]);
   AudioEngine.playBGM(SOUNDS.bgm);
+  
+  // 👇 ★ 新增這一行：當玩家點擊開始，背景就啟動靜默下載器！
+  startSilentPreload(); 
 
   // 0. 請求全螢幕 (跨瀏覽器相容寫法)
   const docElm = document.documentElement;
