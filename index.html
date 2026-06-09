@@ -157,6 +157,25 @@
     cursor:none; /* 用自訂準心取代 */
   }
 
+  /* 💥 狂熱金光遮罩 (GPU 硬體加速) */
+  #feverOverlay {
+    position: absolute; inset: 0; z-index: 9;
+    pointer-events: none;
+    /* 👇 ★ 核心修正：改為橘黃色調 (亮黃色過渡到金橘色) */
+    background: radial-gradient(ellipse at center, transparent 20%, rgba(255, 200, 0, 0.4) 60%, rgba(255, 140, 0, 0.8) 100%);
+    mix-blend-mode: screen; 
+    opacity: 0;
+    transition: opacity 0.3s ease-out;
+    will-change: opacity;
+  }
+  #feverOverlay.active {
+    animation: feverPulse 0.4s ease-in-out infinite alternate;
+  }
+  @keyframes feverPulse {
+    from { opacity: 0.4; }
+    to { opacity: 1.0; }
+  }
+
   /* ── 🔥 Combo 系統樣式 (白邊升級版) ── */
   #comboDisplay {
     position: absolute;
@@ -615,6 +634,7 @@
     </div>
     <!-- Boss 入場標題 -->
     <div id="bossTitle">⚠ BOSS 出現 ⚠</div>
+    <div id="feverOverlay"></div>
     <div id="comboDisplay">Combo x2</div>
 
     <!-- ★ 新版底部混合 UI -->
@@ -807,14 +827,14 @@ const ASSETS = {
 
   fishSprites: {
     2: { sheet: '小魚B.webp', frames: 76, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 70, hitH: 20, pathType: 'arc', sineAmp: 25, formation: 'single', formationCount: 1, spawnDir: 'all' },  // 小魚B
-    3: { sheet: '飛魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 120, hitH: 50, formation: 'line' },  // 飛魚
+    3: { sheet: '飛魚.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 80, hitH: 50, formation: 'line' },  // 飛魚
     4: { sheet: '小丑魚.webp', frames: 76, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 90, hitH: 35, pathType: 'sine', sineAmp: 15, formation: 'v_shape', formationCount: 5, spawnDir: 'all' },  // 小丑魚
     5: { sheet: '河豚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 河豚
-    6: { sheet: '龍蝦.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 龍蝦
-    8: { sheet: '章魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
+    6: { sheet: '龍蝦.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 150, pathType: 'sine', sineAmp: 25, spawnDir: 'all' },  // 龍蝦
+    8: { sheet: '章魚.webp', frames: 141, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', pathType: 'sine', sineAmp: 50, spawnDir: 'horizontal' },  // 章魚
     9: { sheet: '燈籠魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'circle', hitW: 150, hitH: 125, spawnDir: 'horizontal' },  // 燈籠魚
     10: { sheet: '海龜.webp', frames: 142, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 170, hitH: 90, pathType: 'sine', sineAmp: 25, spawnDir: 'horizontal' },  // 海龜
-    11: { sheet: '鯊魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 300, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
+    11: { sheet: '鯊魚.webp', frames: 70, cols: 10, displayW: 270, displayH: 155, bgMode: 'none', hitType: 'rect', hitW: 250, hitH: 100, spawnDir: 'horizontal' },  // 鯊魚
     12: { sheet: '錘頭鯊.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 350, hitH: 120, pathType: 'arc', spawnDir: 'horizontal' },  // 錘頭鯊
     13: { sheet: '魟魚.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', hitType: 'rect', hitW: 200, hitH: 100, pathType: 'sine', sineAmp: 70, sineFreq: 0.02, spawnDir: 'horizontal' },  // 魟魚
     14: { sheet: '炸彈蟹.webp', frames: 192, cols: 8, displayW: undefined, displayH: undefined, bgMode: 'none', spawnDir: 'horizontal' },  // 炸彈蟹
@@ -905,7 +925,10 @@ const SOUNDS = {
   coin:  'coin.mp3',
   boss:  'boss.mp3',
   bgm:   'music.mp3',
-  nuke:  'nuke.mp3' // ★ 新增：核爆專屬音效
+  nuke:  'nuke.mp3', 
+  wheel1: 'wheel01.mp3',   // ★ 新增：輪盤擊中(彈出)音效
+  wheel2: 'wheel02.mp3',   // ★ 新增：輪盤轉動音效
+  morecoin: 'morecoin.mp3' // ★ 新增：收金幣音效
 };
 
 // ════════════════════════════════════════════
@@ -1113,55 +1136,102 @@ function generatePaytable() {
         `;
     });
 
-    // 2. 寫入特色武器 (砲台) 說明
+    // 2. 寫入特色武器 (砲台與特殊兵器) 說明
     ftContainer.innerHTML = `
-        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00bbff; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="width: 80px; height: 80px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #00bbff; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 15px; box-shadow: inset 0 0 8px #0088cc;">
+        <div style="text-align: center; margin-bottom: 12px;">
+            <span style="background: linear-gradient(90deg, transparent, rgba(0, 187, 255, 0.5), transparent); padding: 4px 50px; color: #00e5ff; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 5px #00e5ff;">【 常駐武裝：砲台升級 】</span>
+        </div>
+
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00bbff; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 70px; height: 70px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #00bbff; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 12px; box-shadow: inset 0 0 8px #0088cc;">
                 <img src="砲座.png" style="position: absolute; bottom: 8px; width: 60%; opacity: 0.7;">
                 <img src="砲管A.png" style="position: absolute; bottom: 25px; width: 35%; z-index: 1;">
             </div>
             <div style="flex-grow: 1; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px;">
-                    <span style="color:#00bbff; font-weight:bold; font-size: 18px; text-shadow: 0 0 8px #00bbff;">【一般砲塔】</span>
-                    <span style="color:#ffd700; font-weight:bold; font-size: 15px;">倍率：1 ~ 15 倍</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 3px; margin-bottom: 3px;">
+                    <span style="color:#00bbff; font-weight:bold; font-size: 16px; text-shadow: 0 0 8px #00bbff;">一般砲塔</span>
+                    <span style="color:#ffd700; font-weight:bold; font-size: 14px;">倍率：1 ~ 15 倍</span>
                 </div>
-                <div style="color:#fff; font-size: 14px; line-height: 1.5;">
-                    <span style="color:#aaa;">解鎖條件：</span>無 (預設開啟)<br>
-                    <span style="color:#aaa;">火力效果：</span>基礎單發電漿炮，消耗較低，適合用來清理小型魚群累積資本。
+                <div style="color:#ccc; font-size: 13px; line-height: 1.4;">
+                    基礎單發電漿炮，消耗較低，適合用來清理小型魚群累積資本。
                 </div>
             </div>
         </div>
 
-        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00ffff; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="width: 80px; height: 80px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 15px; box-shadow: inset 0 0 8px #00cccc;">
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #00ffff; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 70px; height: 70px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #00ffff; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 12px; box-shadow: inset 0 0 8px #00cccc;">
                 <img src="砲座.png" style="position: absolute; bottom: 8px; width: 60%; opacity: 0.7;">
                 <img src="砲管B.png" style="position: absolute; bottom: 25px; width: 45%; z-index: 1;">
             </div>
             <div style="flex-grow: 1; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px;">
-                    <span style="color:#00ffff; font-weight:bold; font-size: 18px; text-shadow: 0 0 8px #00ffff;">【雙管重砲】</span>
-                    <span style="color:#ffd700; font-weight:bold; font-size: 15px;">倍率：20 ~ 75 倍</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 3px; margin-bottom: 3px;">
+                    <span style="color:#00ffff; font-weight:bold; font-size: 16px; text-shadow: 0 0 8px #00ffff;">雙管重砲</span>
+                    <span style="color:#ffd700; font-weight:bold; font-size: 14px;">倍率：20 ~ 75 倍</span>
                 </div>
-                <div style="color:#fff; font-size: 14px; line-height: 1.5;">
-                    <span style="color:#aaa;">解鎖條件：</span>擊敗第 2 關 Boss<br>
-                    <span style="color:#aaa;">火力效果：</span>單發升級為雙重平行電漿炮，命中判定範圍變寬，擊殺率更為穩定。
+                <div style="color:#ccc; font-size: 13px; line-height: 1.4;">
+                    單發升級為雙重平行電漿炮，命中判定範圍變寬，擊殺率更為穩定。
                 </div>
             </div>
         </div>
 
-        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #ff4500; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 12px;">
-            <div style="width: 80px; height: 80px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #ff4500; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 15px; box-shadow: inset 0 0 10px #ff2200;">
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #ff4500; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 70px; height: 70px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #ff4500; border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; margin-right: 12px; box-shadow: inset 0 0 10px #ff2200;">
                 <img src="砲座.png" style="position: absolute; bottom: 8px; width: 60%; opacity: 0.7;">
                 <img src="砲管C.png" style="position: absolute; bottom: 25px; width: 55%; z-index: 1; filter: drop-shadow(0 0 5px #00e5ff) brightness(1.2);">
             </div>
             <div style="flex-grow: 1; text-align: left;">
-                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 5px; margin-bottom: 5px;">
-                    <span style="color:#ff4500; font-weight:bold; font-size: 18px; text-shadow: 0 0 8px #ff4500;">【電漿巨砲】</span>
-                    <span style="color:#ffd700; font-weight:bold; font-size: 15px;">倍率：100 ~ 500 倍</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 3px; margin-bottom: 3px;">
+                    <span style="color:#ff4500; font-weight:bold; font-size: 16px; text-shadow: 0 0 8px #ff4500;">電漿巨砲</span>
+                    <span style="color:#ffd700; font-weight:bold; font-size: 14px;">倍率：100 ~ 500 倍</span>
                 </div>
-                <div style="color:#fff; font-size: 14px; line-height: 1.5;">
-                    <span style="color:#aaa;">解鎖條件：</span>擊敗第 4 關 Boss<br>
-                    <span style="color:#aaa;">火力效果：</span>發射極高能電漿彈，命中引發 180px 範圍電漿爆炸，單體致死率直接翻 2 倍！
+                <div style="color:#ccc; font-size: 13px; line-height: 1.4;">
+                    命中引發 180px 範圍電漿爆炸，單體致死率直接翻 2 倍！
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0 12px;">
+            <span style="background: linear-gradient(90deg, transparent, rgba(255, 204, 0, 0.5), transparent); padding: 4px 50px; color: #ffcc00; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 5px #ffcc00;">【 擊殺觸發：深海神兵 】</span>
+        </div>
+
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #ff5544; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 70px; height: 70px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #ff5544; border-radius: 6px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-right: 12px; box-shadow: inset 0 0 10px #cc2200;">
+                <div class="paytable-sprite" data-cols="8" data-rows="24" data-frames="192" data-current-frame="0" style="width: 100%; height: 100%; background-image: url('炸彈蟹.webp'); background-size: 800% 2400%; transform: scale(1.6);"></div>
+            </div>
+            <div style="flex-grow: 1; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 3px; margin-bottom: 3px;">
+                    <span style="color:#ff5544; font-weight:bold; font-size: 16px; text-shadow: 0 0 8px #ff5544;">核能炸彈蟹</span>
+                </div>
+                <div style="color:#ccc; font-size: 13px; line-height: 1.4;">
+                    擊殺後引爆全場核彈，<span style="color:#ff4444;">高機率秒殺畫面內所有中小型魚群</span>，並對 Boss 造成大量重擊！
+                </div>
+            </div>
+        </div>
+
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #cc44aa; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 70px; height: 70px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #cc44aa; border-radius: 6px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-right: 12px; box-shadow: inset 0 0 10px #aa0088;">
+                <div class="paytable-sprite" data-cols="8" data-rows="24" data-frames="192" data-current-frame="0" style="width: 100%; height: 100%; background-image: url('鑽頭蟹.webp'); background-size: 800% 2400%; transform: scale(1.6);"></div>
+            </div>
+            <div style="flex-grow: 1; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 3px; margin-bottom: 3px;">
+                    <span style="color:#ff77ff; font-weight:bold; font-size: 16px; text-shadow: 0 0 8px #cc44aa;">碎甲鑽頭蟹</span>
+                </div>
+                <div style="color:#ccc; font-size: 13px; line-height: 1.4;">
+                    擊殺後獲得高壓鑽頭。手動瞄準發射，<span style="color:#ff77ff;">能在畫面邊緣彈射 5 次並貫穿沿途魚群</span>，享受極致清場快感。
+                </div>
+            </div>
+        </div>
+
+        <div style="background: rgba(0, 30, 60, 0.6); border: 1px solid #44aa66; border-radius: 8px; padding: 12px; display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 70px; height: 70px; flex-shrink: 0; background: rgba(0,0,0,0.5); border: 2px solid #44aa66; border-radius: 6px; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-right: 12px; box-shadow: inset 0 0 10px #228844;">
+                <div class="paytable-sprite" data-cols="8" data-rows="24" data-frames="192" data-current-frame="0" style="width: 100%; height: 100%; background-image: url('轉輪蟹.webp'); background-size: 800% 2400%; transform: scale(1.6);"></div>
+            </div>
+            <div style="flex-grow: 1; text-align: left;">
+                <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.2); padding-bottom: 3px; margin-bottom: 3px;">
+                    <span style="color:#44ee77; font-weight:bold; font-size: 16px; text-shadow: 0 0 8px #44aa66;">幸運轉輪蟹</span>
+                </div>
+                <div style="color:#ccc; font-size: 13px; line-height: 1.4;">
+                    擊殺後召喚深海幸運輪盤，<span style="color:#44ee77;">最高可獲得高達 100 倍的 Jackpot 超級大獎</span>，瞬間暴富！
                 </div>
             </div>
         </div>
@@ -1289,6 +1359,158 @@ let screenShakeTimer = 0;
 let screenShakeIntensity = 0;
 let whiteFlashTimer = 0;
 
+// ==========================================
+// ⚙️ 鑽頭砲引擎 (Drill Cannon System) ⚙️
+// ==========================================
+const drillImg = new Image();
+drillImg.src = '鑽頭.png';
+let drillWeapon = {
+  state: 'none', // 狀態切換：'none', 'flying', 'ready', 'fired'
+  x: 0, y: 0, vx: 0, vy: 0, angle: 0,
+  bounceCount: 0, betAmount: 10
+};
+// ★ 新增：獨立的鑽頭砲發射核心控制器 (手動與自動共用)
+function launchDrill(angle) {
+  drillWeapon.state = 'fired';
+  drillWeapon.angle = angle;
+  drillWeapon.bounceCount = 0;
+  const drillSpeed = 16; // 鑽頭的高速飛行速度
+  drillWeapon.vx = Math.cos(angle) * drillSpeed;
+  drillWeapon.vy = Math.sin(angle) * drillSpeed;
+  
+  // 讓鑽頭物理座標精準從大砲前端噴射出去 (管長約 70px)
+  drillWeapon.x = cannon.x + Math.cos(angle) * 70;
+  drillWeapon.y = cannon.y + Math.sin(angle) * 70;
+  
+  triggerScreenShake(0.3, 15); // 發射時的強烈後座力震動
+  AudioEngine.play(SOUNDS.shoot3, 1.0); // 播放發射巨響
+}
+function updateDrawDrill(dt) {
+  if (drillWeapon.state === 'none' || !drillImg.complete) return;
+
+  ctx.save();
+  // ── 階段 1：擊殺後，鑽頭飛向砲台 ──
+  if (drillWeapon.state === 'flying') {
+    const dx = cannon.x - drillWeapon.x;
+    const dy = cannon.y - drillWeapon.y;
+    const dist = Math.hypot(dx, dy);
+    
+    if (dist < 20) {
+        drillWeapon.state = 'ready';
+        drillWeapon.readyTimer = 3.0; // ★ 核心修改：吸附在砲塔上的那一瞬間，正式啟動 3 秒倒數計時！
+        AudioEngine.play(SOUNDS.shoot2, 0.8); // 裝填完成音效
+    } else {
+        drillWeapon.x += dx * 0.12; 
+        drillWeapon.y += dy * 0.12;
+    }
+    
+    ctx.translate(drillWeapon.x, drillWeapon.y);
+    ctx.rotate(Date.now() * 0.02); 
+    ctx.drawImage(drillImg, -50, -50, 100, 100); 
+  } 
+  // ── 階段 2：裝填完成，覆蓋在砲管上等待發射 (跟隨滑鼠轉動 + 3秒倒數) ──
+  else if (drillWeapon.state === 'ready') {
+    // 1. 扣除蓄力倒數秒數
+    drillWeapon.readyTimer -= dt;
+    
+    // 2. 防呆判定：如果玩家 3 秒內都沒開火，時間到就強制幫玩家自動射出！
+    if (drillWeapon.readyTimer <= 0) {
+        launchDrill(cannon.angle);
+        ctx.restore();
+        return;
+    }
+
+    // 3. 渲染青藍色的科幻倒數霓虹字體 (保持正向，不會跟著大砲顛倒)
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#00ffff';
+    ctx.shadowBlur = 10;
+    ctx.fillText(`READY: ${Math.ceil(drillWeapon.readyTimer)}s`, cannon.x, cannon.y - 95);
+    ctx.shadowBlur = 0; // 重置陰影，避免污染後續繪圖
+
+    // 4. 變換矩陣，讓鑽頭完美覆蓋在當前大砲朝向的砲口上
+    const offset = 40; 
+    ctx.translate(cannon.x + Math.cos(cannon.angle) * offset, cannon.y + Math.sin(cannon.angle) * offset);
+    ctx.rotate(cannon.angle);
+    ctx.drawImage(drillImg, 0, -45, 150, 90); 
+  } 
+  // ── 階段 3：射出！貫穿全場與邊界彈射 ──
+  else if (drillWeapon.state === 'fired') {
+    drillWeapon.x += drillWeapon.vx * dt * 60;
+    drillWeapon.y += drillWeapon.vy * dt * 60;
+
+    // 邊界反彈邏輯 (最多彈射 5 次)
+    if (drillWeapon.bounceCount < 5) {
+        let bounced = false;
+        if (drillWeapon.x < 0) { drillWeapon.x = 0; drillWeapon.vx *= -1; bounced = true; }
+        else if (drillWeapon.x > W) { drillWeapon.x = W; drillWeapon.vx *= -1; bounced = true; }
+        
+        if (drillWeapon.y < 0) { drillWeapon.y = 0; drillWeapon.vy *= -1; bounced = true; }
+        else if (drillWeapon.y > H) { drillWeapon.y = H; drillWeapon.vy *= -1; bounced = true; }
+
+        if (bounced) {
+            drillWeapon.bounceCount++;
+            drillWeapon.angle = Math.atan2(drillWeapon.vy, drillWeapon.vx);
+            spawnRipple(drillWeapon.x, drillWeapon.y, 1.2); 
+            triggerScreenShake(0.15, 12); 
+        }
+    }
+
+    ctx.translate(drillWeapon.x, drillWeapon.y);
+    ctx.rotate(drillWeapon.angle);
+    
+    spawnParticles(drillWeapon.x - Math.cos(drillWeapon.angle)*70, drillWeapon.y - Math.sin(drillWeapon.angle)*70, '#00ffff', 4, 4, 12, 15);
+    ctx.drawImage(drillImg, -75, -45, 150, 90);
+
+    // 碎甲貫穿傷害判定
+    const hitRadius = 55;
+    for (let f of fishes) {
+        if (f.dead || f.x < -100 || f.x > W+100 || f.y < -100 || f.y > H+100) continue;
+        if (dist(drillWeapon.x, drillWeapon.y, f.x, f.y) < hitRadius + f.size/2) {
+            f.hp -= drillWeapon.betAmount * 5; 
+            f.hitFlash = 3;
+            spawnParticles(f.x, f.y, '#00e5ff', 2, 3, 8, 12); 
+            
+            if (f.hp <= 0 && !f.dead) {
+                f.hp = 0; f.dead = true;
+                comboCount++; comboTimer = 2.5; updateComboUI();
+                let won = drillWeapon.betAmount * f.mult;
+                let finalWon = Math.round(won * Math.min(2.0, 1 + (comboCount * 0.02)));
+                sessionScore += finalWon;
+                spawnFlyingCoins(f.x, f.y, f.mult);
+                spawnExplosion(f.x, f.y, f.size / 60);
+                spawnFloatingText(f.x, f.y, `+${finalWon} 鑽孔!`, 60, '#00ffff', 28);
+                _hudDirty = true;
+            }
+        }
+    }
+    
+    if (boss.state === 'active' || boss.state === 'entering') {
+       const bSize = _activeBossDef.size || 200;
+       if (dist(drillWeapon.x, drillWeapon.y, boss.x, boss.y) < hitRadius + bSize * 0.8) {
+            boss.hp -= drillWeapon.betAmount * 15;
+            boss.hitFlash = 3;
+            spawnParticles(drillWeapon.x, drillWeapon.y, '#ff0000', 3, 5, 12, 15);
+            updateBossHpBar();
+            
+            if (boss.hp <= 0 && boss.state !== 'dying') {
+                boss.state = 'dying'; boss.enterTimer = 2.5; bossTimerActive = false; if(_domCache.bossTimer) _domCache.bossTimer.classList.remove('show');
+                for(let k=0; k<5; k++){ setTimeout(()=>{ spawnExplosion(boss.x+rand(-200,200), boss.y+rand(-150,150), rand(1.5,3.0)); spawnParticles(boss.x+rand(-200,200), boss.y+rand(-150,150),'#ffd700',20,3,10,60,true); }, k*300); }
+                spawnFloatingText(boss.x, boss.y-100, 'BOSS 擊殺！', 120, '#ffee00', 30);
+                spawnFlyingCoins(boss.x, boss.y, 100);
+                setTimeout(()=> settleBossResult(true), 800);
+            }
+       }
+    }
+
+    if (drillWeapon.bounceCount >= 5 && (drillWeapon.x < -200 || drillWeapon.x > W+200 || drillWeapon.y < -200 || drillWeapon.y > H+200)) {
+        drillWeapon.state = 'none';
+    }
+  }
+  ctx.restore();
+}
+
 function spawnBomb(x, y, bet) {
   bombs.push({ x: x, y: y, timer: 0, maxTime: 2.5, betAmount: bet });
 }
@@ -1385,6 +1607,180 @@ function updateDrawBombs(dt) {
       bombs.splice(i, 1);
     }
   }
+}
+
+// ==========================================
+// 🎡 幸運輪盤引擎 (Lucky Roulette System) 🎡
+// ==========================================
+const rouletteImg = new Image(); rouletteImg.src = '幸運輪盤.png';
+const pointerImg = new Image(); pointerImg.src = '輪盤指針.png';
+
+// 定義輪盤上 8 個格子的倍率 (對應 45 度角的 8 個切片)
+const ROULETTE_SLICES = [100, 15, 50, 20, 80, 10, 40, 30]; 
+
+let roulette = {
+  state: 'none', // 狀態：'none', 'entering', 'spinning', 'rewarding', 'exiting'
+  timer: 0,
+  angle: 0,
+  startAngle: 0,
+  targetAngle: 0,
+  spinDuration: 5.0, // 旋轉 5 秒，營造期待感
+  scale: 0,
+  targetSlice: 0,
+  betAmount: 0
+};
+
+function triggerRoulette(bet) {
+  roulette.state = 'entering';
+  roulette.timer = 0;
+  roulette.scale = 0;
+  roulette.betAmount = bet;
+  roulette.startAngle = roulette.angle % (Math.PI * 2);
+
+  // 🎲 決定中獎格 (目前為純隨機，若要控制機率可在此修改權重)
+  roulette.targetSlice = Math.floor(Math.random() * 8);
+  
+  // 計算目標角度 (讓中獎格完美停在正上方 - 指針處)
+  // ★ PNG 分格線在 0/45/90...度，格子中心在 22.5/67.5...度，需加 π/8 補正
+  const SLICE_OFFSET = Math.PI / 8; // 22.5 度，讓格子中心對齊指針
+  let targetA = -(roulette.targetSlice * (Math.PI / 4)) - SLICE_OFFSET;
+  
+  // 確保順時針旋轉，並額外多轉 8 圈來營造「狂轉」的視覺張力
+  let rotationDiff = targetA - roulette.startAngle;
+  while (rotationDiff <= 0) rotationDiff += Math.PI * 2;
+  roulette.targetAngle = roulette.startAngle + rotationDiff + Math.PI * 2 * 8;
+  
+  // ★ 1. 擊中（輪盤彈出）時播放 wheel01.mp3
+  AudioEngine.play(SOUNDS.wheel1, 1.0); 
+}
+
+function updateDrawRoulette(dt) {
+  if (roulette.state === 'none' || !rouletteImg.complete || !pointerImg.complete) return;
+
+  const cx = W / 2;
+  const cy = H / 2;
+  
+  // 1. 畫全畫面半透明黑幕 (聚焦輪盤，讓背景變暗)
+  ctx.save();
+  ctx.fillStyle = 'rgba(0, 5, 15, 0.8)';
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. 狀態機邏輯處理
+  if (roulette.state === 'entering') {
+    roulette.timer += dt;
+    let p = roulette.timer / 0.5;
+    if (p >= 1) { 
+        p = 1; 
+        roulette.state = 'spinning'; 
+        roulette.timer = 0; 
+        // ★ 2. 輪盤開始瘋狂轉動時，播放 wheel02.mp3
+        AudioEngine.play(SOUNDS.wheel2, 1.0); 
+    }
+    // 彈性放大特效 (Overshoot)
+    const c1 = 1.70158;
+    roulette.scale = 1 + (c1 + 1) * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); 
+  } 
+  else if (roulette.state === 'spinning') {
+    roulette.timer += dt;
+    let p = roulette.timer / roulette.spinDuration;
+    if (p >= 1) { 
+      p = 1; 
+      roulette.state = 'rewarding'; 
+      roulette.timer = 0;
+      
+      // 🛑 停定發獎！
+      let mult = ROULETTE_SLICES[roulette.targetSlice];
+      let won = roulette.betAmount * mult;
+      sessionScore += won;
+      
+      // 👇 ★ 1. 呼叫全新的大獎噴泉金幣！(數量會依照 won 金額自動暴增)
+      spawnJackpotCoins(cx, cy, won); 
+      
+      // 👇 ★ 2. 加入強烈的視覺衝擊 (螢幕震動 + 瞬間白光閃爍)
+      triggerScreenShake(0.6, 25);
+      whiteFlashTimer = 0.8;
+      AudioEngine.play(SOUNDS.wheel1, 0.8); // 借用警報聲當作 Jackpot 的震撼重音
+      
+      // 👇 ★ 3. 華麗的 Jackpot 文字浮現
+      spawnFloatingText(cx, cy - 80, `JACKPOT! +${won}`, 150, '#ffcc00', 65);
+      
+      _hudDirty = true;
+    }
+    // Quartic Ease Out 緩動函數 (起步極快，最後平滑緩慢停下)
+    let easeOut = 1 - Math.pow(1 - p, 4);
+    roulette.angle = roulette.startAngle + (roulette.targetAngle - roulette.startAngle) * easeOut;
+  }
+  else if (roulette.state === 'rewarding') {
+    roulette.timer += dt;
+    if (roulette.timer > 3.0) { // 中獎後停留 3 秒讓玩家享受
+      roulette.state = 'exiting';
+      roulette.timer = 0;
+    }
+  }
+  else if (roulette.state === 'exiting') {
+    roulette.timer += dt;
+    let p = roulette.timer / 0.4;
+    if (p >= 1) { roulette.state = 'none'; ctx.restore(); return; }
+    roulette.scale = 1 - Math.pow(p, 3); // 加速縮小消失
+  }
+
+  // 3. 開始繪製輪盤本體 (PNG 透明背景版)
+  ctx.translate(cx, cy);
+  ctx.scale(roulette.scale, roulette.scale);
+
+  let rw = 500, rh = 500;
+  
+  // ★ 核心修正：輪盤本體 + 數字 + 中獎閃爍，全部一起旋轉！
+  ctx.save();
+  ctx.rotate(roulette.angle);
+  
+  // 增加外發光陰影，讓輪盤看起來更有懸浮的立體感
+  ctx.shadowColor = 'rgba(0, 229, 255, 0.6)';
+  ctx.shadowBlur = 30;
+  
+  ctx.drawImage(rouletteImg, -rw/2, -rh/2, rw, rh);
+  
+  // ★ 數字也在旋轉群組內，跟著輪盤一起轉
+  // ★ 格子中心在 i*45 + 22.5 度，所以從 SLICE_OFFSET 開始畫
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < 8; i++) {
+    ctx.save();
+    ctx.rotate(i * Math.PI / 4 + Math.PI / 8); // ★ +22.5度，對齊格子中心
+    ctx.translate(0, -rw * 0.36); 
+    
+    ctx.font = '900 42px Arial Black';
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#000';
+    ctx.shadowBlur = 0;
+    ctx.strokeText(`${ROULETTE_SLICES[i]}x`, 0, 0);
+    ctx.fillStyle = '#ffee00';
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur = 10;
+    ctx.fillText(`${ROULETTE_SLICES[i]}x`, 0, 0);
+    ctx.restore();
+  }
+
+  ctx.restore(); // 結束旋轉群組
+
+  // ★ 中獎閃爍扇形：在旋轉群組【外面】，不受 roulette.angle 影響，永遠固定在正上方
+  if (roulette.state === 'rewarding' && Math.floor(roulette.timer * 8) % 2 === 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, rw/2 - 20, -Math.PI/2 - Math.PI/8, -Math.PI/2 + Math.PI/8);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.shadowColor = 'rgba(255,255,200,0.8)';
+    ctx.shadowBlur = 20;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  let pw = 90, ph = 120;
+  ctx.drawImage(pointerImg, -pw/2, -rw/2 - ph * 0.35, pw, ph);
+
+  ctx.restore();
 }
 
 // ════════════════════════════════════════════
@@ -2119,7 +2515,13 @@ const dist = (x1,y1,x2,y2) => Math.hypot(x2-x1, y2-y1);
 
 function drawFishGeom(f) {
   ctx.save(); ctx.translate(f.x, f.y);
-  const facingLeft = Math.cos(f.angle) < 0; ctx.rotate(f.angle + (facingLeft ? Math.PI : 0)); if(facingLeft) ctx.scale(-1, 1);
+  
+  // 👇 ★ 核心修正：加入 0.15 的遲滯緩衝區，避免垂直震盪導致狂閃
+  if (Math.cos(f.angle) < -0.15) f.isFacingLeft = true;
+  else if (Math.cos(f.angle) > 0.15) f.isFacingLeft = false;
+  const facingLeft = f.isFacingLeft; 
+  
+  ctx.rotate(f.angle + (facingLeft ? Math.PI : 0)); if(facingLeft) ctx.scale(-1, 1);
   const s = f.size, flash = f.hitFlash > 0;
   
   // 正常繪製幾何魚（包含陰影）
@@ -2146,7 +2548,11 @@ function drawFishSprite(f, sprCfg) {
 
   const dw = sprCfg.displayW || sprCfg.frameW;
   const dh = sprCfg.displayH || sprCfg.frameH;
-  const isFacingLeft = Math.abs(f.angle) > Math.PI / 2;
+  
+  // 👇 ★ 核心修正：同步套用遲滯邏輯，這同時也修復了弧線魚旋轉過度時的翻肚 Bug
+  if (Math.cos(f.angle) < -0.15) f.isFacingLeft = true;
+  else if (Math.cos(f.angle) > 0.15) f.isFacingLeft = false;
+  const isFacingLeft = f.isFacingLeft;
 
   ctx.save(); 
   ctx.translate(f.x, f.y); 
@@ -2301,6 +2707,9 @@ function spawnFish(){
       hitType: f_hitType, hitW: f_hitW, hitH: f_hitH,
       angle: Math.atan2(vy, vx),
       
+      // 👇 ★ 新增這行：記錄出生時的面對方向，作為後續的翻轉基準
+      isFacingLeft: vx < 0, 
+      
       // ★ 將數值降到 0.0005 ~ 0.0015 之間，創造如長弓般的優美大弧線
       arcAngle: Math.atan2(vy, vx), 
       turnRate: (pathType === 'arc') ? (Math.random() > 0.5 ? rand(tMin, tMax) : rand(-tMax, -tMin)) : 0,
@@ -2318,6 +2727,13 @@ function spawnFish(){
 }
 
 function fireBullet(tx, ty) {
+  // 👇 ★ 修改：手動點擊開火時，計算當前指針角度，並交給核心發射函數
+  if (drillWeapon.state === 'ready') {
+      const angle = Math.atan2(ty - cannon.y, tx - cannon.x);
+      launchDrill(angle);
+      return; // 成功攔截，不發射一般子彈、不扣除金幣
+  }
+  
   if (coins < betAmount) return;
   coins -= betAmount; updateHUD();
   
@@ -2377,18 +2793,20 @@ function updateComboUI() {
   let txtColor = '#990000';  
   let glowColor = '#550000'; 
 
-  // ★ 3. 終極白熱化 (30連擊以上)：極度高溫的純白帶強烈金光
-  if (comboCount >= 30) { 
+  // ★ 3. 終極白熱化 (100連擊以上)：極度高溫的純白帶強烈金光
+  if (comboCount >= 100) { 
     txtColor = '#ffffff'; 
     glowColor = '#ffcc00'; 
+    if (_domCache.feverOverlay) _domCache.feverOverlay.classList.add('active'); // ★ 啟動狂熱金光
   }
-  // 高溫階段 (20~29連擊)：亮黃色 + 橘色光暈
-  else if (comboCount >= 20) { 
+  // 高溫階段 (50~99連擊)：亮黃色 + 橘色光暈
+  else if (comboCount >= 50) { 
     txtColor = '#ffdd00'; 
     glowColor = '#ff6600'; 
+    if (_domCache.feverOverlay) _domCache.feverOverlay.classList.remove('active'); // ★ 確保未達標時關閉
   }
-  // 升溫階段 (10~19連擊)：橘紅色 + 鮮紅光暈
-  else if (comboCount >= 10) { 
+  // 升溫階段 (20~49連擊)：橘紅色 + 鮮紅光暈 (原本是10)
+  else if (comboCount >= 20) { 
     txtColor = '#ff5500'; 
     glowColor = '#cc0000'; 
   }
@@ -2407,9 +2825,13 @@ function updateComboUI() {
 }
 
 // ✅ 替換成這個「巨砲強化版」：
-function damageFish(f, hitX, hitY, bulletType = 1) { // ★ 多接收一個 bulletType 參數
-  f.hitFlash = 3; 
-  spawnParticles(hitX, hitY, f.color, 8, 2, 6, 35);
+function damageFish(f, hitX, hitY, bulletType = 1) { 
+  // 👇 ★ 狂熱模式門檻改為 100，純白高溫火花現在更稀有了！
+  f.hitFlash = comboCount >= 100 ? 6 : 3; 
+  let pColor = comboCount >= 100 ? '#ffffff' : f.color;
+  let pCount = comboCount >= 100 ? 15 : 8;
+  let pSpd = comboCount >= 100 ? 12 : 6;
+  spawnParticles(hitX, hitY, pColor, pCount, 2, pSpd, 35);
   
   // 👇 ★ 暴力美學：如果是三階電漿巨砲，單體致死率直接翻 2 倍！(跟雙管炮兩發全中的期望值一樣)
   let killBonus = 1.0;
@@ -2427,8 +2849,18 @@ function damageFish(f, hitX, hitY, bulletType = 1) { // ★ 多接收一個 bull
         if (f.id === 14) {
            spawnBomb(f.x, f.y, betAmount);
         }
-        // 👆 ★ 新增結束 👆
-    
+        
+    // 👇 ★ 再新增：如果死掉的是鑽頭蟹 (ID: 15)，且目前沒有正在使用的鑽頭，觸發彈出！
+        if (f.id === 15 && drillWeapon.state === 'none') {
+           drillWeapon.state = 'flying';
+           drillWeapon.x = f.x;
+           drillWeapon.y = f.y;
+           drillWeapon.betAmount = betAmount; // 繼承擊殺這隻螃蟹時的火力，作為鑽頭的傷害基準
+        }
+    // 👇 ★ 新增：如果死掉的是轉輪蟹 (ID: 16)，觸發幸運輪盤！
+        if (f.id === 16 && roulette.state === 'none') {
+           triggerRoulette(betAmount);
+        }
     // ★ 1. 必須先增加 Combo 數，才能拿最新的 Combo 去算獎勵！
     comboCount++;
     comboTimer = 2.5; 
@@ -2524,32 +2956,54 @@ function checkCollisions(){
     }
   }
 }
-
-// 💰 生成噴發的金幣 (Canvas 極速版)
-function spawnFlyingCoins(x, y, mult) {
-  // ★ iOS：總數上限 + 每次數量上限；桌機維持原本邏輯
-  const maxCoins = isIOS ? 12 : 60;
-  const MAX_FLYING = isIOS ? 30 : Infinity;
-  if (isIOS && flyingCoins.length >= MAX_FLYING) return;
-  const count = Math.min(maxCoins, Math.max(3, Math.floor(mult / (isIOS ? 2 : 1.5)))); 
-  for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = rand(4, isIOS ? 10 : 12);
+// 💰 正常擊殺魚群用的金幣生成器 (被誤刪的函式補回)
+function spawnFlyingCoins(x, y, count) {
+  const maxLimit = isIOS ? 8 : 15; // 一般小魚掉落的金幣數量上限
+  const c = Math.min(count, maxLimit);
+  
+  for (let i = 0; i < c; i++) {
     flyingCoins.push({
       x: x, y: y,
-      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-      timer: 0, delay: rand(isIOS ? 0.05 : 0.1, isIOS ? 0.3 : 0.5), scale: rand(0.8, 1.2), flySpeed: 3
+      vx: (Math.random() - 0.5) * 12, // 左右隨機彈開
+      vy: (Math.random() - 1.0) * 8,  // 往上彈跳
+      timer: 0, 
+      delay: Math.random() * 0.25,    
+      scale: 0.8 + Math.random() * 0.4, 
+      flySpeed: 1.0,
+      isJackpot: false // ★ 新增：標記這是一般金幣
+    });
+  }
+}
+
+// 💰 針對大獎專用的「滿屏火山噴泉金幣」 (極速爆裂版)
+function spawnJackpotCoins(x, y, wonAmount) {
+  // 根據贏得的金額決定金幣數量 (保底 40 枚，最多 150 枚，保護 iOS 效能)
+  const maxLimit = isIOS ? 60 : 150;
+  const count = Math.min(maxLimit, 40 + Math.floor(wonAmount / 50)); 
+  
+  for (let i = 0; i < count; i++) {
+    flyingCoins.push({
+      x: x, y: y,
+      // ★ 1. 改為爆炸物理：左右極大範圍炸開 (-25 ~ +25)，向上強烈爆發 (-15 ~ -35)
+      vx: (Math.random() - 0.5) * 50, 
+      vy: -rand(15, 35), 
+      timer: 0, 
+      // ★ 2. 大幅縮短滯空時間：0.4 ~ 0.8 秒。讓它們像拉炮一樣「砰」炸開後，迅速被積分條吸走
+      delay: rand(0.4, 0.8), 
+      scale: rand(0.9, 1.6), 
+      flySpeed: 1.0,
+      isJackpot: true // ★ 新增：標記這是大獎金幣！
     });
   }
 }
 
 // 💰 更新與繪製飛入 UI 的金幣 (修正：無限繞圈與位置偏移 bug)
 function updateDrawFlyingCoins(dt) {
-  // ★ 金幣收入位置從左邊300改為右邊900
   const targetX = 900, targetY = 680; 
   if (!coinImg.complete) return;
 
   let coinsHitThisFrame = false; 
+  let isJackpotHitThisFrame = false; // ★ 新增：用來記錄這幀有沒有吸到「大獎金幣」
 
   ctx.save();
   for(let i = flyingCoins.length - 1; i >= 0; i--) {
@@ -2561,8 +3015,8 @@ function updateDrawFlyingCoins(dt) {
     } else {
       let dx = targetX - c.x, dy = targetY - c.y, d = Math.hypot(dx, dy);
       
-      // ★ 加入防呆機制 (c.flySpeed >= d)：防止掉幀時金幣飛太快越過目標，變成無限繞圈！
-    if (d < 45 || c.flySpeed >= d) {
+      if (d < 45 || c.flySpeed >= d) {
+        if (c.isJackpot) isJackpotHitThisFrame = true; // ★ 發現大獎金幣抵達！
         flyingCoins.splice(i, 1);
         coinsHitThisFrame = true; 
         continue;
@@ -2579,16 +3033,25 @@ function updateDrawFlyingCoins(dt) {
 
   // ★ 當金幣抵達終點時的特效觸發
   if (coinsHitThisFrame) {
-    AudioEngine.play(SOUNDS.coin, 0.4); 
     
-    // 👇 這裡將 _domCache.coinsDisplay 改為 _domCache.scoreDisplay 👇
+    // 👇 ★ 核心修正：依照身分證播放對應音效
+    if (isJackpotHitThisFrame) {
+        AudioEngine.play(SOUNDS.morecoin, 0.6); // 大獎：播放嘩啦啦大量進帳聲
+    } else {
+        AudioEngine.play(SOUNDS.coin, 0.4);     // 一般小魚：播放清脆單枚金幣聲
+    }
+    
     const el = _domCache.scoreDisplay; 
     if(el) { 
-      el.style.transform = 'scale(1.4)'; // 瞬間放大 1.4 倍
+      // 👇 ★ 狂熱模式門檻改為 100
+      if (comboCount >= 100) {
+         el.style.transform = `scale(1.7) rotate(${(Math.random() - 0.5) * 15}deg)`; 
+      } else {
+         el.style.transform = 'scale(1.4)'; 
+      }
       
-      // 使用獨立的計時器，避免與其他動畫衝突
       if (window.scoreHitTimer) clearTimeout(window.scoreHitTimer);
-      window.scoreHitTimer = setTimeout(()=> el.style.transform = 'scale(1)', 80); // 80 毫秒後縮回原狀
+      window.scoreHitTimer = setTimeout(()=> el.style.transform = 'scale(1) rotate(0deg)', 80); 
     }
   }
 }
@@ -3082,14 +3545,15 @@ function gameLoop(timestamp){
   if (comboTimer > 0 && boss.state !== 'entering' && boss.state !== 'dying') {
     comboTimer -= dt;
     if (comboTimer <= 0) {
-      comboCount = 0;
-      const el = _domCache.comboDisplay;
-      if (el) {
-        el.classList.remove('active');
-        // ★ 這裡的隱藏尺寸同步改為 0.25
-        el.style.transform = 'scale(0.25) rotate(-10deg)'; 
+        comboCount = 0;
+        const el = _domCache.comboDisplay;
+        if (el) {
+          el.classList.remove('active');
+          el.style.transform = 'scale(0.25) rotate(-10deg)'; 
+        }
+        // 👇 ★ 新增：斷連擊時，瞬間關閉狂熱金光
+        if (_domCache.feverOverlay) _domCache.feverOverlay.classList.remove('active'); 
       }
-    }
   }
 
   spawnTimer++;
@@ -3171,10 +3635,21 @@ function gameLoop(timestamp){
     drawBullet(b);
   }
 
-  checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawRipples(); updateDrawFloatingTexts(); drawBoss(dt); updateDrawFlyingCoins(dt);
-  // 👇 ★ 1. 畫出炸彈與其脈動效果 👇
+  // 1. 先做碰撞、底層特效與 Boss 繪製
+  checkCollisions(); checkBossCollision(); updateDrawParticles(); updateDrawExplosions(dt); updateDrawPlasma(); updateDrawRipples(); drawBoss(dt);
+  
+  // 2. 畫出神兵武器 (炸彈、鑽頭)
   updateDrawBombs(dt);
-  // ★ 將準星畫在這裡！確保它壓在所有魚、特效和金幣的上面！
+  updateDrawDrill(dt);
+
+  // 3. 畫出幸運輪盤 (這時會產生覆蓋全畫面的半透明黑幕)
+  updateDrawRoulette(dt);
+  
+  // 👇 ★ 4. 核心修正：將浮動文字與飛翔金幣移到輪盤「之後」畫，確保它們壓在黑幕的最上層！
+  updateDrawFloatingTexts(); 
+  updateDrawFlyingCoins(dt);
+  
+  // 5. 畫出準星！確保它永遠在畫面的絕對最高層！
   drawCrosshair();
   // ★ 效能優化：幀尾統一 flush HUD，把這幀所有 updateHUD() 呼叫合併成一次 DOM 寫入
   _flushHUD();
@@ -3238,25 +3713,32 @@ function gameLoop(timestamp){
   }
 
   // 🎯 開火邏輯 (加入安全鎖：避免自動與手動同時觸發導致雙倍扣錢)
-  if (autoFire) {
-    // 【狀態 1：自動射擊優先】
-    autoFireTimer++;
-    if (autoFireTimer >= 14) { 
-      autoFireTimer = 0; 
-      if (target) fireBullet(target.x, target.y);
-    }
-    mouseFireTimer = 0; // 確保手動計時器被重置，防止累積
-  } 
-  else {
-    // 【狀態 2：沒有開啟自動時，才允許手動連發】
-    if (mouseDown) { 
-      mouseFireTimer++; 
-      if (mouseFireTimer >= 14) {  
+  // 👇 ★ 核心修正：如果輪盤正在畫面上表演，強制暫停所有開火行為！
+  if (roulette.state !== 'none') {
+    autoFireTimer = 0;
+    mouseFireTimer = 0;
+  } else {
+    // 只有輪盤不在畫面上時，才允許自動或手動射擊
+    if (autoFire) {
+      // 【狀態 1：自動射擊優先】
+      autoFireTimer++;
+      if (autoFireTimer >= 14) { 
+        autoFireTimer = 0; 
+        if (target) fireBullet(target.x, target.y);
+      }
+      mouseFireTimer = 0; // 確保手動計時器被重置，防止累積
+    } 
+    else {
+      // 【狀態 2：沒有開啟自動時，才允許手動連發】
+      if (mouseDown) { 
+        mouseFireTimer++; 
+        if (mouseFireTimer >= 14) {  
+          mouseFireTimer = 0; 
+          fireBullet(mouseX, mouseY); 
+        } 
+      } else { 
         mouseFireTimer = 0; 
-        fireBullet(mouseX, mouseY); 
-      } 
-    } else { 
-      mouseFireTimer = 0; 
+      }
     }
   }
 // 👇 ★ 2. 處理核爆瞬間的全畫面閃白光 👇
@@ -3403,7 +3885,8 @@ startBtn.addEventListener('click', async () => {
   // ★ 預載所有音效並啟動 BGM
   await AudioEngine.preload([
     SOUNDS.shoot1, SOUNDS.shoot2, SOUNDS.shoot3,
-    SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm, SOUNDS.nuke // ⬅️ 將 SOUNDS.nuke 加在這裡
+    SOUNDS.coin, SOUNDS.boss, SOUNDS.bgm, SOUNDS.nuke,
+    SOUNDS.wheel1, SOUNDS.wheel2, SOUNDS.morecoin // ★ 新增這三支檔案
   ]);
   AudioEngine.playBGM(SOUNDS.bgm);
 
@@ -3435,6 +3918,7 @@ startBtn.addEventListener('click', async () => {
   _domCache.bossHpLabel  = document.getElementById('bossHpLabel');
   _domCache.scoreMax     = document.querySelector('.score-max');
   _domCache.bgBlur       = document.getElementById('bgBlur');
+  _domCache.feverOverlay = document.getElementById('feverOverlay');
 
   // ★ 效能優化：預計算魚種總權重（常數，只算一次）
   _totalFishWeight = 0;
