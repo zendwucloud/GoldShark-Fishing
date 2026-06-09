@@ -85,9 +85,12 @@
   #bgBlur video, #bgBlur img {
     position:absolute; inset:0;
     width:100%; height:100%;
-    object-fit:fill;      
+    
+    /* 👇 ★ 將原本的 object-fit: fill; 改為 cover; */
+    object-fit: cover;      
+    
     filter:blur(18px) brightness(0.4) saturate(1.3);
-    transform:scale(1.2); /* ★ 調大這裡的縮放倍率，把黑邊推出螢幕外 */
+    transform:scale(1.2); 
     pointer-events:none;
   }
 
@@ -528,18 +531,11 @@
     #startBtn { padding: 10px 40px; font-size: 20px; border-width: 2px; }
   }
 
-  @media (max-width:768px) and (orientation:portrait){
-    #rotatePrompt { display:flex; }
-  }
+  
 </style>
 </head>
 <body>
 
-<!-- 豎屏提示 -->
-<div id="rotatePrompt">
-  <div class="rotate-icon">📱</div>
-  <div>請旋轉手機為橫屏<br>以獲得最佳遊戲體驗</div>
-</div>
 
 <div id="loadingScreen">
   <div class="loading-content">
