@@ -957,12 +957,12 @@ let stageTotalSpent = 0;
 let comboCount     = 0;
 let comboTimer     = 0; 
 
-// ★ 關卡目標分數：維持指數成長，用來吸收後期 500 倍電漿巨砲的恐怖火力！
+// ★ 關卡目標分數：維持指數成長
 const STAGE_GOALS   = [5000, 10000, 20000, 40000, 80000, 160000, 320000, 640000, 1280000, 2560000]; 
 
-// ★ Boss 基礎全額獎金：大幅收斂差距 (第 1 關 1500，第 10 關最高只給 15000)
-// 這樣既保證了後期的關卡難度，又徹底封死了莊家破產的風險
-const STAGE_REWARDS = [1500, 2500, 4000, 5500, 7000, 8500, 10000, 12000, 13500, 15000]; 
+// 👇 ★ Boss 基礎全額獎金：設定為該關卡目標分數的 25% (大獎金池)
+// 當玩家靠打小魚虧損 20%~30% 的資金時，擊殺 Boss 拿到的這 25% 獎金將成為逆轉勝的關鍵！
+const STAGE_REWARDS = [1250, 2500, 5000, 10000, 20000, 40000, 80000, 160000, 320000, 640000]; 
 
 // 💡 關鍵修正：補回被誤刪的當前關卡核心變數
 let bossLevel      = 0; 
@@ -2021,8 +2021,11 @@ function settleBossResult(killedInTime){
   } else {
     // 【失敗】：安慰獎 (莊家穩賺)，依照對 Boss 造成的傷害比例給予打折獎勵
     const dmgPct = 1 - (boss.hp / boss.maxHp);
-    const currentGoal = STAGE_GOALS[bossLevel] || (160000 * Math.pow(2, Math.max(0, bossLevel - 5)));
-    bossBounty = Math.floor(currentGoal * 0.1 * dmgPct * 0.6); // 傷害比例再打 6 折
+    
+    // 👇 ★ 嚴厲懲罰：抓取該關卡的「真實 Boss 獎金」，並只給予傷害比例的 25% 作為安慰獎
+    const fullBounty = STAGE_REWARDS[bossLevel] || 640000;
+    bossBounty = Math.floor(fullBounty * dmgPct * 0.25); 
+    
     bountyText = `❌ 逃跑 (傷害 ${Math.round(dmgPct*100)}%)`;
   }
 
@@ -2990,8 +2993,8 @@ function damageFish(f, hitX, hitY, bulletType = 1, isMainTarget = true) {
   // 👇 ★ 核心平衡機制：主目標保留 1.5 倍的高致死爽感，擴散波及只給 0.2 倍
   let killBonus = isMainTarget ? 1.5 : 0.2; 
 
-  // 👇 ★ 嚴格控管：基數降為 0.3，徹底逼出高階武器的真實成本！
-  const killChance = (0.30 / f.mult) * killBonus; 
+  // 👇 ★ 嚴格控管：基數降為 0.2，徹底逼出高階武器的真實成本！
+  const killChance = (0.20 / f.mult) * killBonus; 
   
   if (Math.random() < killChance) { f.hp = 0; } 
   else { f.hp = Math.max(0.1, f.hp - (f.maxHp / (f.mult * 1.5))); }
@@ -3382,21 +3385,18 @@ function drawBackground(){
   const renderIdx = lastAppliedBgIdx === -1 ? 0 : lastAppliedBgIdx;
   const curBgImg = bgImages[renderIdx];
 
-  // ★ 渲染順序 1：動態影片（保持原始比例以高度填滿）
-  let bgDrawn = false;
-  // 👇 ★ 替換為 (解除 iOS 限制)：
+  // ★ 修復：靜態圖永遠先畫（當影片 loop 接縫解碼空窗時頂住）
+  if (curBgImg && curBgImg.complete && curBgImg.naturalWidth > 0) {
+    const r = calcBgRect(curBgImg);
+    ctx.drawImage(curBgImg, r.dx, r.dy, r.dw, r.dh);
+  }
+
+  // 影片疊在上面，有就畫（readyState 掉下來那幀靜態圖會頂住）
   if (bgVideo && bgVideo.readyState >= 2) {
     const r = calcBgRect(bgVideo);
     ctx.drawImage(bgVideo, r.dx, r.dy, r.dw, r.dh);
-    bgDrawn = true;
   }
-  
-  // ★ 渲染順序 2：靜態圖片（保持原始比例以高度填滿）
-  else if(curBgImg && curBgImg.complete && curBgImg.naturalWidth > 0){
-    const r = calcBgRect(curBgImg);
-    ctx.drawImage(curBgImg, r.dx, r.dy, r.dw, r.dh);
-    bgDrawn = true;
-  }
+
 
   // 🎯 3. 畫上轉場深海黑幕 (同步 Canvas 內層與 DOM 外層)
   if (bgFadeAlpha > 0) {
