@@ -2842,12 +2842,7 @@ function showShop() {
   document.getElementById('shop-modal').classList.add('active');
   AudioEngine.play(SOUNDS.boss, 1.0); // 借用警報聲刺激消費
   
-  // 強制解除自動射擊，避免儲值完一瞬間子彈狂噴
-  autoFire = false;
-  const btn = document.getElementById('autoBtn');
-  if(btn) btn.classList.remove('active');
-  const autoText = document.getElementById('autoText');
-  if(autoText) autoText.textContent = '自動射擊';
+  // (自動射擊維持原狀態，儲值完畢瞬間無縫接軌狂轟濫炸！)
 }
 
 function closeShop() {
